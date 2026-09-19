@@ -19,7 +19,7 @@ echo -e "\n3.7 Testing API endpoint FROM INSIDE APP CONTAINER..."
 docker exec ride-hailing-backend-app-1 curl -s -m 10 -v -X POST -H "Content-Type: application/json" -d '{"name": "test", "email": "test_api_check@gmail.com", "phone": "1234569999", "password": "abc", "role": "PASSENGER"}' http://127.0.0.1:8080/api/auth/register
 
 echo -e "\n3. Testing API endpoint (with 10-second timeout)..."
-curl -s -m 10 -v -X POST -H "Content-Type: application/json" -d '{"name": "test", "email": "test_api_check@gmail.com", "phone": "1234569999", "password": "abc", "role": "PASSENGER"}' http://localhost:8080/api/auth/register > response.txt
+curl -4 -s -m 10 -v -X POST -H "Content-Type: application/json" -d '{"name": "test", "email": "test_api_check@gmail.com", "phone": "1234569999", "password": "abc", "role": "PASSENGER"}' http://127.0.0.1:8080/api/auth/register > response.txt
 CURL_STATUS=$?
 
 echo -e "\n\n4. Results:"
