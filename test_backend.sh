@@ -4,11 +4,13 @@ echo -e "\n1. Starting Postgres and Kafka first..."
 docker compose up -d postgres kafka redis
 sleep 5
 
-echo -e "\n1.5 Bypassing Docker DNS (Extracting Postgres IPv4)..."
-PG_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ride-hailing-backend-postgres-1)
-echo "Postgres IP is: $PG_IP"
-sed -i "s/\"host\": \"postgres\"/\"host\": \"$PG_IP\"/g" config/config.json
-sed -i "s/\"host\": \"[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\"/\"host\": \"$PG_IP\"/g" config/config.json
+echo -e "\n1.5 Bypassing Broken Docker Bridge (Extracting Gateway IPv4)..."
+GATEWAY_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.Gateway}}{{end}}' ride-hailing-backend-app-1)
+echo "Gateway IP is: $GATEWAY_IP"
+sed -i "s/\"host\": \".*\"/\"host\": \"$GATEWAY_IP\"/g" config/config.json
+
+# Also change main.cc to use Gateway IP
+sed -i "s/host=[^ ]* /host=$GATEWAY_IP /g" src/main.cc
 
 echo -e "\n2. Restarting App to apply config..."
 docker compose restart app
