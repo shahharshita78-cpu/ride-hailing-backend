@@ -3,9 +3,13 @@
 
 namespace repositories {
 
-std::string UserRepository::createUser(const std::string& name, const std::string& email, const std::string& phone, const std::string& passwordHash, const std::string& role) {
+void UserRepository::createUser(const std::string& name, const std::string& email, const std::string& phone, const std::string& passwordHash, const std::string& role,
+                                std::function<void(const std::string&)> onSuccess, std::function<void(const std::exception&)> onError) {
     auto dbClient = drogon::app().getDbClient();
-    if (!dbClient) throw std::runtime_error("No DB client");
+    if (!dbClient) {
+        onError(std::runtime_error("No DB client"));
+        return;
+    }
 
     std::string sql = R"(
         WITH new_user AS (
@@ -22,36 +26,75 @@ std::string UserRepository::createUser(const std::string& name, const std::strin
         SELECT user_id FROM new_user;
     )";
 
-    auto result = dbClient->execSqlSync(sql, name, email, phone, passwordHash, role);
-    
-    if (result.empty()) {
-        throw std::runtime_error("Failed to insert user");
-    }
-    
-    return result[0]["user_id"].as<std::string>();
+    dbClient->execSqlAsync(
+        sql,
+        [onSuccess, onError](const drogon::orm::Result& result) {
+            if (result.empty()) {
+                onError(std::runtime_error("Failed to insert user"));
+                return;
+            }
+            onSuccess(result[0]["user_id"].as<std::string>());
+        },
+        [onError](const drogon::orm::DrogonDbException& e) {
+            onError(e.base());
+        },
+        name, email, phone, passwordHash, role
+    );
 }
 
-Json::Value UserRepository::getUserByEmail(const std::string& email) {
+void UserRepository::getUserByEmail(const std::string& email,
+                                    std::function<void(const Json::Value&)> onSuccess, std::function<void(const std::exception&)> onError) {
     auto dbClient = drogon::app().getDbClient();
-    auto result = dbClient->execSqlSync("SELECT * FROM users WHERE email = $1", email);
-    
-    if (result.empty()) return Json::Value();
-    
-    Json::Value user;
-    user["user_id"] = result[0]["user_id"].as<std::string>();
-    user["password_hash"] = result[0]["password_hash"].as<std::string>();
-    user["role"] = result[0]["role"].as<std::string>();
-    user["name"] = result[0]["name"].as<std::string>();
-    
-    if (user["role"].asString() == "PASSENGER") {
-        auto pRes = dbClient->execSqlSync("SELECT passenger_id FROM passenger WHERE user_id = $1", user["user_id"].asString());
-        if (!pRes.empty()) user["passenger_id"] = pRes[0]["passenger_id"].as<std::string>();
-    } else {
-        auto dRes = dbClient->execSqlSync("SELECT driver_id FROM driver WHERE user_id = $1", user["user_id"].asString());
-        if (!dRes.empty()) user["driver_id"] = dRes[0]["driver_id"].as<std::string>();
+    if (!dbClient) {
+        onError(std::runtime_error("No DB client"));
+        return;
     }
-    
-    return user;
+
+    dbClient->execSqlAsync(
+        "SELECT * FROM users WHERE email = $1",
+        [dbClient, email, onSuccess, onError](const drogon::orm::Result& result) {
+            if (result.empty()) {
+                onSuccess(Json::Value());
+                return;
+            }
+            
+            Json::Value user;
+            user["user_id"] = result[0]["user_id"].as<std::string>();
+            user["password_hash"] = result[0]["password_hash"].as<std::string>();
+            user["role"] = result[0]["role"].as<std::string>();
+            user["name"] = result[0]["name"].as<std::string>();
+            
+            if (user["role"].asString() == "PASSENGER") {
+                dbClient->execSqlAsync(
+                    "SELECT passenger_id FROM passenger WHERE user_id = $1",
+                    [user, onSuccess, onError](const drogon::orm::Result& pRes) mutable {
+                        if (!pRes.empty()) user["passenger_id"] = pRes[0]["passenger_id"].as<std::string>();
+                        onSuccess(user);
+                    },
+                    [onError](const drogon::orm::DrogonDbException& e) {
+                        onError(e.base());
+                    },
+                    user["user_id"].asString()
+                );
+            } else {
+                dbClient->execSqlAsync(
+                    "SELECT driver_id FROM driver WHERE user_id = $1",
+                    [user, onSuccess, onError](const drogon::orm::Result& dRes) mutable {
+                        if (!dRes.empty()) user["driver_id"] = dRes[0]["driver_id"].as<std::string>();
+                        onSuccess(user);
+                    },
+                    [onError](const drogon::orm::DrogonDbException& e) {
+                        onError(e.base());
+                    },
+                    user["user_id"].asString()
+                );
+            }
+        },
+        [onError](const drogon::orm::DrogonDbException& e) {
+            onError(e.base());
+        },
+        email
+    );
 }
 
 }

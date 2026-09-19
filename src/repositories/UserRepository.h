@@ -5,7 +5,9 @@
 namespace repositories {
 class UserRepository {
 public:
-    static std::string createUser(const std::string& name, const std::string& email, const std::string& phone, const std::string& passwordHash, const std::string& role);
-    static Json::Value getUserByEmail(const std::string& email);
+    static void createUser(const std::string& name, const std::string& email, const std::string& phone, const std::string& passwordHash, const std::string& role,
+                           std::function<void(const std::string&)> onSuccess, std::function<void(const std::exception&)> onError);
+    static void getUserByEmail(const std::string& email, 
+                               std::function<void(const Json::Value&)> onSuccess, std::function<void(const std::exception&)> onError);
 };
 }
