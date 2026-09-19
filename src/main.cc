@@ -14,9 +14,9 @@ int main() {
     // Connect using the Drogon config file
     drogon::app().loadConfigFile("../config/config.json");
 
-    // Start Kafka consumer immediately
-    static consumers::RideEventConsumer eventConsumer;
-    eventConsumer.start();
+    // TEMPORARILY DISABLED: Start Kafka consumer immediately
+    // static consumers::RideEventConsumer eventConsumer;
+    // eventConsumer.start();
 
     // Add CORS support
     drogon::app().registerPreRoutingAdvice([](const drogon::HttpRequestPtr &req,
