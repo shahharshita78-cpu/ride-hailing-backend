@@ -4,7 +4,29 @@
 #include <cstdlib>
 
 int main() {
-    // Connect using the Drogon config file
+    // Connect to DB using environment variables
+    const char* env_user = std::getenv("POSTGRES_USER");
+    const char* env_pass = std::getenv("POSTGRES_PASSWORD");
+    const char* env_db = std::getenv("POSTGRES_DB");
+
+    std::string pg_user = env_user ? env_user : "postgres";
+    std::string pg_pass = env_pass ? env_pass : "postgres";
+    std::string pg_db = env_db ? env_db : "ride_hailing";
+
+    drogon::app().createDbClient(
+        "postgres",
+        "postgres",
+        5432,
+        pg_db,
+        pg_user,
+        pg_pass,
+        5,
+        "",
+        "default",
+        false
+    );
+
+    // Load listeners from config
     drogon::app().loadConfigFile("../config/config.json");
 
     // Start Kafka consumer only after Drogon has connected to the DB
