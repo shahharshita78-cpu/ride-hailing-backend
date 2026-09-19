@@ -30,7 +30,13 @@ const Register: React.FC = () => {
         navigate('/login');
       }
     } catch (err: any) {
-      setError(err.response?.data || 'Registration failed');
+      if (err.response && err.response.data && err.response.data.message) {
+        setError(err.response.data.message);
+      } else if (err.response && typeof err.response.data === 'string') {
+        setError(err.response.data);
+      } else {
+        setError('Registration failed');
+      }
     } finally {
       setLoading(false);
     }

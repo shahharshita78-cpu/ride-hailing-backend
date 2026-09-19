@@ -2,8 +2,8 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ${POSTGRES_DB:-ride_hailing}
     ports:
       - "5432:5432"
@@ -68,8 +68,8 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=${POSTGRES_DB:-ride_hailing}
       - JWT_SECRET=${JWT_SECRET:-super_secret_key_change_me_in_prod}
       - KAFKA_BROKER=kafka:9092
