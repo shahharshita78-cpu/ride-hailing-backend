@@ -15,7 +15,6 @@
       "dbname": "ride_hailing",
       "user": "postgres",
       "passwd": "postgres",
-      "is_fast": false,
       "connection_number": 5
     }
   ]
