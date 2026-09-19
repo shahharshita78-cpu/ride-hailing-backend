@@ -60,7 +60,7 @@ services:
     networks:
       - ride_network
     healthcheck:
-      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      test: ["CMD-SHELL", "cub kafka-ready -b localhost:9092 1 20 || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 12
