@@ -12,7 +12,15 @@ sed -i "s/\"host\": \"[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\"/\"host\": \"$PG_IP\"/g" c
 
 echo -e "\n2. Restarting App to apply config..."
 docker compose restart app
-sleep 10
+
+echo -e "\n2.5 Waiting for C++ Compilation to finish and server to start (up to 90s)..."
+for i in {1..90}; do
+  if docker compose logs app | grep -q "Starting server"; then
+    echo "✅ Server started successfully!"
+    break
+  fi
+  sleep 1
+done
 
 echo -e "\n2. Capturing FULL app logs..."
 docker compose logs --tail 30 app
