@@ -1,5 +1,5 @@
 #include <drogon/drogon.h>
-#include <libpq-fe.h>
+#include <postgresql/libpq-fe.h>
 #include "utils/KafkaUtils.h"
 #include "consumers/RideEventConsumer.h"
 #include <cstdlib>

@@ -10,6 +10,8 @@ find_package(Drogon REQUIRED)
 # Add source files
 file(GLOB_RECURSE SRC_FILES "src/*.cc")
 
+include_directories(/usr/include/postgresql)
+
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 
 # Link against Drogon and other required libraries
