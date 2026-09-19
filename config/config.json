@@ -19,14 +19,6 @@
       "connection_number": 5
     }
   ],
-  "app": {
-    "log": {
-      "log_path": "./",
-      "logfile_base_name": "ride_hailing",
-      "log_size_limit": 100000000,
-      "log_level": "DEBUG"
-    }
-  },
   "plugins": [
     {
       "name": "drogon::plugin::CorsPlugin",
