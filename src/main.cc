@@ -61,6 +61,24 @@ int main() {
         (*checkDb)(1);
     });
 
+    // Add CORS support
+    drogon::app().registerPreRoutingAdvice([](const drogon::HttpRequestPtr &req,
+                                              drogon::FilterCallback &&defer,
+                                              drogon::FilterChainCallback &&chain) {
+        if (req->method() == drogon::Options) {
+            auto resp = drogon::HttpResponse::newHttpResponse();
+            resp->addHeader("Access-Control-Allow-Origin", "*");
+            resp->addHeader("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PUT, DELETE, PATCH");
+            resp->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+            defer(resp);
+        } else {
+            chain();
+        }
+    });
+
+    drogon::app().registerPostHandlingAdvice([](const drogon::HttpRequestPtr &req, const drogon::HttpResponsePtr &resp) {
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+    });
 
     // Test route
     drogon::app().registerHandler(
