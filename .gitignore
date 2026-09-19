@@ -1,0 +1,14 @@
+build/
+.env
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+*.dir/
+.idea/
+.vscode/
+*.o
+*.a
+*.so
+*.dylib

@@ -1,0 +1,17 @@
+{
+  "listeners": [
+    {
+      "address": "0.0.0.0",
+      "port": 8080,
+      "https": false
+    }
+  ],
+  "app": {
+    "log": {
+      "log_path": "./",
+      "logfile_base_name": "ride_hailing",
+      "log_size_limit": 100000000,
+      "log_level": "DEBUG"
+    }
+  }
+}
