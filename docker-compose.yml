@@ -78,7 +78,7 @@ services:
     volumes:
       - .:/workspace
     command: >
-      sh -c "mkdir -p build && cd build && cmake .. && make -j$$(nproc) && ./ride_hailing_backend"
+      sh -c "mkdir -p build && cd build && cmake .. && make && ./ride_hailing_backend"
 
 volumes:
   pgdata:
