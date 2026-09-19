@@ -46,10 +46,16 @@ void UserController::registerUser(const HttpRequestPtr &req, std::function<void(
         std::string userId = repositories::UserRepository::createUser(name, email, phone, passwordHash, role);
         std::string token = ::utils::jwt_utils::generateToken(userId, role);
 
+        Json::Value userObj;
+        userObj["user_id"] = userId;
+        userObj["name"] = name;
+        userObj["email"] = email;
+        userObj["role"] = role;
+
         Json::Value ret;
         ret["message"] = "Registration successful";
         ret["token"] = token;
-        ret["user_id"] = userId;
+        ret["user"] = userObj;
 
         auto resp = HttpResponse::newHttpJsonResponse(ret);
         callback(resp);
@@ -101,14 +107,19 @@ void UserController::login(const HttpRequestPtr &req, std::function<void(const H
         if (::utils::crypto::verifyPassword(password, storedHash)) {
             std::string token = ::utils::jwt_utils::generateToken(userId, role);
             
+            Json::Value userObj;
+            userObj["user_id"] = userId;
+            userObj["name"] = user["name"].asString();
+            userObj["email"] = email;
+            userObj["role"] = role;
+            
+            if (user.isMember("passenger_id")) userObj["passenger_id"] = user["passenger_id"];
+            if (user.isMember("driver_id")) userObj["driver_id"] = user["driver_id"];
+
             Json::Value ret;
             ret["message"] = "Login successful";
             ret["token"] = token;
-            ret["user_id"] = userId;
-            ret["role"] = role;
-            
-            if (user.isMember("passenger_id")) ret["passenger_id"] = user["passenger_id"];
-            if (user.isMember("driver_id")) ret["driver_id"] = user["driver_id"];
+            ret["user"] = userObj;
 
             auto resp = HttpResponse::newHttpJsonResponse(ret);
             callback(resp);
