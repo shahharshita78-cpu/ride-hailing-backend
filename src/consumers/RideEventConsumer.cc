@@ -34,7 +34,9 @@ void RideEventConsumer::run() {
                 { "metadata.broker.list", broker },
                 { "group.id", "ride_event_indexer" },
                 { "enable.auto.commit", true },
-                { "auto.offset.reset", "earliest" }
+                { "auto.offset.reset", "earliest" },
+                { "reconnect.backoff.ms", 1000 },
+                { "reconnect.backoff.max.ms", 10000 }
             };
 
             cppkafka::Consumer consumer(config);
@@ -50,7 +52,7 @@ void RideEventConsumer::run() {
 
                 if (msg.get_error()) {
                     if (!msg.is_eof()) {
-                        LOG_ERROR << "Kafka consume error: " << msg.get_error().to_string();
+                        throw std::runtime_error("Kafka consume error: " + msg.get_error().to_string());
                     }
                     continue;
                 }
