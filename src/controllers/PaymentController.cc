@@ -23,7 +23,7 @@ void PaymentController::processPayment(const HttpRequestPtr &req, std::function<
             id, amount, method
         );
 
-        utils::kafka::produceEvent("ride_events", id, "PaymentCompleted");
+        ::utils::kafka::produceEvent("ride_events", id, "PaymentCompleted");
 
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k200OK);

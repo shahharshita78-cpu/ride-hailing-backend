@@ -76,7 +76,7 @@ bool RideRepository::cancelRideByActor(const std::string& rideId,
                                         const std::string& actorDriverId,
                                         const std::string& actorPassengerId) {
     auto dbClient = drogon::app().getDbClient();
-    drogon::orm::Result result;
+    drogon::orm::Result result(nullptr);
     if (!actorDriverId.empty()) {
         result = dbClient->execSqlSync(
             "UPDATE ride SET ride_status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP "
@@ -95,7 +95,7 @@ bool RideRepository::cancelRideByActor(const std::string& rideId,
 
 Json::Value RideRepository::getActiveRideForUser(const std::string& userId, const std::string& role) {
     auto dbClient = drogon::app().getDbClient();
-    drogon::orm::Result result;
+    drogon::orm::Result result(nullptr);
     if (role == "PASSENGER") {
         result = dbClient->execSqlSync(
             "SELECT r.* FROM ride r JOIN passenger p ON r.passenger_id = p.passenger_id "

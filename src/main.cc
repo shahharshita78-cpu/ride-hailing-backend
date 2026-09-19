@@ -4,15 +4,12 @@
 #include <cstdlib>
 
 int main() {
-    // Load config file — this creates the DB client from config/config.json
-    // which reads host "postgres" and credentials from environment variables
-    // via docker-compose: POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
-    // Override the static config values with env vars if present
+    // Connect to PostgreSQL using environment variables
     const char* pg_user   = std::getenv("POSTGRES_USER");
     const char* pg_pass   = std::getenv("POSTGRES_PASSWORD");
     const char* pg_db     = std::getenv("POSTGRES_DB");
 
-    // createDbClient programmatically so env vars take precedence over config.json
+    // Initialize DB client
     drogon::app().createDbClient(
         "postgresql",
         "postgres",           // host — matches the docker-compose service name

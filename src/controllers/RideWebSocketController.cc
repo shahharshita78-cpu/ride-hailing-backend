@@ -24,7 +24,7 @@ void RideWebSocketController::handleNewMessage(const WebSocketConnectionPtr& wsC
                 if (!driverId.empty()) {
                     double lat = root["lat"].asDouble();
                     double lon = root["lon"].asDouble();
-                    utils::redis::updateDriverLocation(driverId, lon, lat);
+                    ::utils::redis::updateDriverLocation(driverId, lon, lat);
                     wsConnPtr->send("{\"status\":\"Location updated\"}");
 
                     // Notify passenger if there is an active ride (async to avoid blocking event loop)
@@ -65,7 +65,7 @@ void RideWebSocketController::handleNewConnection(const HttpRequestPtr &req,
     std::string token = req->getParameter("token");
     std::string userId, role;
     
-    if (!utils::jwt_utils::verifyToken(token, userId, role)) {
+    if (!::utils::jwt_::utils::verifyToken(token, userId, role)) {
         wsConnPtr->forceClose();
         return;
     }

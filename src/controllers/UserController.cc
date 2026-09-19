@@ -39,12 +39,12 @@ void UserController::registerUser(const HttpRequestPtr &req, std::function<void(
         return;
     }
 
-    std::string salt = utils::crypto::generateSalt();
-    std::string passwordHash = utils::crypto::hashPassword(password, salt);
+    std::string salt = ::utils::crypto::generateSalt();
+    std::string passwordHash = ::utils::crypto::hashPassword(password, salt);
 
     try {
         std::string userId = repositories::UserRepository::createUser(name, email, phone, passwordHash, role);
-        std::string token = utils::jwt_utils::generateToken(userId, role);
+        std::string token = ::utils::jwt_::utils::generateToken(userId, role);
 
         Json::Value ret;
         ret["message"] = "Registration successful";
@@ -98,8 +98,8 @@ void UserController::login(const HttpRequestPtr &req, std::function<void(const H
         std::string userId = user["user_id"].asString();
         std::string role = user["role"].asString();
 
-        if (utils::crypto::verifyPassword(password, storedHash)) {
-            std::string token = utils::jwt_utils::generateToken(userId, role);
+        if (::utils::crypto::verifyPassword(password, storedHash)) {
+            std::string token = ::utils::jwt_::utils::generateToken(userId, role);
             
             Json::Value ret;
             ret["message"] = "Login successful";

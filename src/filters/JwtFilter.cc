@@ -17,7 +17,7 @@ void JwtFilter::doFilter(const HttpRequestPtr &req,
     std::string token = authHeader.substr(7);
     std::string userId, role;
     
-    if (utils::jwt_utils::verifyToken(token, userId, role)) {
+    if (::utils::jwt_::utils::verifyToken(token, userId, role)) {
         req->getAttributes()->insert("user_id", userId);
         req->getAttributes()->insert("role", role);
         fccb();

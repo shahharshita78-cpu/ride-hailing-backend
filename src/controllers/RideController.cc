@@ -47,7 +47,7 @@ void RideController::requestRide(const HttpRequestPtr &req, std::function<void(c
 
         // FIX 4: Kafka failure must not abort the ride or the WS notification.
         try {
-            utils::kafka::produceEvent("ride_events", rideId, "RideRequested");
+            ::utils::kafka::produceEvent("ride_events", rideId, "RideRequested");
         } catch (const std::exception& kafkaEx) {
             LOG_ERROR << "requestRide: Kafka produce failed (ride still created): " << kafkaEx.what();
         }
@@ -98,7 +98,7 @@ void RideController::acceptRide(const HttpRequestPtr &req, std::function<void(co
     bool success = repositories::RideRepository::acceptRide(id, driverId);
     if (success) {
         try {
-            utils::kafka::produceEvent("ride_events", id, "RideAccepted");
+            ::utils::kafka::produceEvent("ride_events", id, "RideAccepted");
         } catch (const std::exception& kafkaEx) {
             LOG_ERROR << "acceptRide: Kafka produce failed: " << kafkaEx.what();
         }
@@ -148,7 +148,7 @@ void RideController::startRide(const HttpRequestPtr &req, std::function<void(con
     bool success = repositories::RideRepository::updateRideStatusByDriver(id, driverId, "MATCHED", "ONGOING");
     if (success) {
         try {
-            utils::kafka::produceEvent("ride_events", id, "RideStarted");
+            ::utils::kafka::produceEvent("ride_events", id, "RideStarted");
         } catch (const std::exception& kafkaEx) {
             LOG_ERROR << "startRide: Kafka produce failed: " << kafkaEx.what();
         }
@@ -208,7 +208,7 @@ void RideController::completeRide(const HttpRequestPtr &req, std::function<void(
     bool success = repositories::RideRepository::updateRideStatusByDriver(id, driverId, "ONGOING", "COMPLETED");
     if (success) {
         try {
-            utils::kafka::produceEvent("ride_events", id, "RideCompleted");
+            ::utils::kafka::produceEvent("ride_events", id, "RideCompleted");
         } catch (const std::exception& kafkaEx) {
             LOG_ERROR << "completeRide: Kafka produce failed: " << kafkaEx.what();
         }
@@ -278,7 +278,7 @@ void RideController::cancelRide(const HttpRequestPtr &req, std::function<void(co
     bool success = repositories::RideRepository::cancelRideByActor(id, actorDriverId, actorPassengerId);
     if (success) {
         try {
-            utils::kafka::produceEvent("ride_events", id, "RideCancelled");
+            ::utils::kafka::produceEvent("ride_events", id, "RideCancelled");
         } catch (const std::exception& kafkaEx) {
             LOG_ERROR << "cancelRide: Kafka produce failed: " << kafkaEx.what();
         }

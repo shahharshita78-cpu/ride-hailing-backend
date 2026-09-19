@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     postgresql-server-dev-all \
     librdkafka-dev \
+    libboost-dev \
+    libboost-program-options-dev \
     libhiredis-dev \
     wget \
     make \
