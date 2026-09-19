@@ -5,11 +5,14 @@ namespace repositories {
 
 void UserRepository::createUser(const std::string& name, const std::string& email, const std::string& phone, const std::string& passwordHash, const std::string& role,
                                 std::function<void(const std::string&)> onSuccess, std::function<void(const std::exception&)> onError) {
+    LOG_INFO << "UserRepository: createUser called for email " << email;
     auto dbClient = drogon::app().getDbClient();
     if (!dbClient) {
+        LOG_ERROR << "UserRepository: No DB client available!";
         onError(std::runtime_error("No DB client"));
         return;
     }
+    LOG_INFO << "UserRepository: Acquired DB client, executing SQL...";
 
     std::string sql = R"(
         WITH new_user AS (
@@ -29,6 +32,7 @@ void UserRepository::createUser(const std::string& name, const std::string& emai
     dbClient->execSqlAsync(
         sql,
         [onSuccess, onError](const drogon::orm::Result& result) {
+            LOG_INFO << "UserRepository: DB callback onSuccess triggered";
             if (result.empty()) {
                 onError(std::runtime_error("Failed to insert user"));
                 return;
@@ -36,6 +40,7 @@ void UserRepository::createUser(const std::string& name, const std::string& emai
             onSuccess(result[0]["user_id"].as<std::string>());
         },
         [onError](const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "UserRepository: DB callback onError triggered! " << e.base().what();
             onError(e.base());
         },
         name, email, phone, passwordHash, role
