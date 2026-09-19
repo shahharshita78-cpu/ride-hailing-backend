@@ -5,17 +5,5 @@
       "port": 8080,
       "https": false
     }
-  ],
-  "db_clients": [
-    {
-      "name": "default",
-      "rdbms": "postgresql",
-      "host": "postgres",
-      "port": 5432,
-      "dbname": "ride_hailing",
-      "user": "postgres",
-      "passwd": "postgres",
-      "connection_number": 5
-    }
   ]
 }

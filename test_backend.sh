@@ -7,13 +7,10 @@ sleep 5
 echo -e "\n1.5 Bypassing Broken Docker Bridge (Extracting Gateway IPv4)..."
 GATEWAY_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.Gateway}}{{end}}' ride-hailing-backend-app-1)
 echo "Gateway IP is: $GATEWAY_IP"
-sed -i "s/\"host\": \".*\"/\"host\": \"$GATEWAY_IP\"/g" config/config.json
-
-# Also change main.cc to use Gateway IP
-sed -i "s/host=[^ ]* /host=$GATEWAY_IP /g" src/main.cc
+export PG_HOST=$GATEWAY_IP
 
 echo -e "\n2. Restarting App to apply config..."
-docker compose restart app
+docker compose up -d app
 
 echo -e "\n2.5 Waiting for C++ Compilation to finish and server to start (up to 90s)..."
 for i in {1..90}; do

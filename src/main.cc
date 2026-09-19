@@ -20,14 +20,23 @@ int main() {
     // eventConsumer.start();
 
     // RAW libpq connection test to figure out why Drogon's DB pool is hanging
-    LOG_INFO << "Testing RAW libpq connection to postgres...";
-    PGconn *conn = PQconnectdb("host=postgres port=5432 dbname=ride_hailing user=postgres password=postgres connect_timeout=5");
+    std::string pgHost = "postgres";
+    if (const char* envHost = std::getenv("PG_HOST")) {
+        pgHost = envHost;
+    }
+    
+    LOG_INFO << "Testing RAW libpq connection to " << pgHost << "...";
+    std::string connStr = "host=" + pgHost + " port=5432 dbname=ride_hailing user=postgres password=postgres connect_timeout=5";
+    PGconn *conn = PQconnectdb(connStr.c_str());
     if (PQstatus(conn) != CONNECTION_OK) {
         LOG_ERROR << "CRITICAL: libpq raw connection failed! Error: " << PQerrorMessage(conn);
     } else {
-        LOG_INFO << "SUCCESS: libpq raw connection to postgres succeeded!";
+        LOG_INFO << "SUCCESS: libpq raw connection to " << pgHost << " succeeded!";
     }
     PQfinish(conn);
+
+    // Initialize Drogon DB Client manually using the resolved host
+    drogon::app().createDbClient("postgresql", pgHost, 5432, "ride_hailing", "postgres", "postgres", 5, "", "default", false);
 
     // Add CORS support
     drogon::app().registerPreRoutingAdvice([](const drogon::HttpRequestPtr &req,
