@@ -29,10 +29,18 @@ graph TD
 
 ## Current Status / Roadmap
 - [x] Phase 1: Project Scaffolding
-- [ ] Phase 2: Auth Service
-- [ ] Phase 3: Driver Management
-- [ ] Phase 4: Ride Lifecycle & Real-time Updates
-- [ ] Phase 5: Final Polish
+- [x] Phase 2: Auth Service (Signup/Login, JWT)
+- [x] Phase 3: Driver Management (Geospatial tracking via Redis)
+- [x] Phase 4: Ride Lifecycle & Real-time Updates (Kafka, WebSockets)
+- [x] Phase 5: Final Polish (Exception handling & Structured logging)
 
 ## API Documentation
-(To be updated as endpoints are implemented)
+- `POST /auth/signup`
+- `POST /auth/login`
+- `PATCH /drivers/status`
+- `PATCH /drivers/location`
+- `GET /drivers/nearby`
+- `POST /rides/request`
+- `GET /rides/:id`
+- `POST /rides/:id/cancel`
+- `WS /ws/rides`
