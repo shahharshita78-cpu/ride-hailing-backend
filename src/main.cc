@@ -15,9 +15,9 @@ int main() {
     // Connect using the Drogon config file
     drogon::app().loadConfigFile("../config/config.json");
 
-    // TEMPORARILY DISABLED: Start Kafka consumer immediately
-    // static consumers::RideEventConsumer eventConsumer;
-    // eventConsumer.start();
+    // Start Kafka consumer
+    static consumers::RideEventConsumer eventConsumer;
+    eventConsumer.start();
 
     // RAW libpq connection test to figure out why Drogon's DB pool is hanging
     std::string pgHost = "postgres";
