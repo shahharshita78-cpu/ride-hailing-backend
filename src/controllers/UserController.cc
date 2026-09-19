@@ -61,10 +61,11 @@ void UserController::registerUser(const HttpRequestPtr &req, std::function<void(
         callback(resp);
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        auto resp = HttpResponse::newHttpResponse();
+        Json::Value ret;
+        ret["message"] = std::string("DB Error: ") + e.what();
+        auto resp = HttpResponse::newHttpJsonResponse(ret);
         resp->setStatusCode(k500InternalServerError);
         resp->addHeader("Access-Control-Allow-Origin", "*");
-        resp->setBody("Database error or user already exists");
         callback(resp);
     }
 }
