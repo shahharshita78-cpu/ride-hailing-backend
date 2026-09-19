@@ -4,6 +4,9 @@
 #include <cstdlib>
 
 int main() {
+    // Load listeners from config first, so it doesn't overwrite manual DB config
+    drogon::app().loadConfigFile("../config/config.json");
+
     // Connect to DB using environment variables
     const char* env_user = std::getenv("POSTGRES_USER");
     const char* env_pass = std::getenv("POSTGRES_PASSWORD");
@@ -20,14 +23,11 @@ int main() {
         pg_db,
         pg_user,
         pg_pass,
-        5,
+        1,
         "",
         "default",
-        false
+        true // isFast MUST be true to avoid PgBatchConnection crashes
     );
-
-    // Load listeners from config
-    drogon::app().loadConfigFile("../config/config.json");
 
     // Start Kafka consumer only after Drogon has connected to the DB
     static consumers::RideEventConsumer eventConsumer;
