@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ${POSTGRES_DB:-ride_hailing}
+      POSTGRES_DB: ride_hailing
     ports:
       - "5432:5432"
     volumes:
@@ -70,7 +70,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=${POSTGRES_DB:-ride_hailing}
+      - POSTGRES_DB=ride_hailing
       - JWT_SECRET=${JWT_SECRET:-super_secret_key_change_me_in_prod}
       - KAFKA_BROKER=kafka:9092
     networks:
