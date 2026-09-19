@@ -18,20 +18,6 @@ int main() {
     // static consumers::RideEventConsumer eventConsumer;
     // eventConsumer.start();
 
-    // Test DB Connection immediately
-    drogon::app().registerBeginningAdvice([]() {
-        auto dbClient = drogon::app().getDbClient();
-        if (dbClient) {
-            try {
-                // Execute a fast query
-                auto res = dbClient->execSqlSync("SELECT 1");
-                LOG_INFO << "SUCCESS: Database connection is alive!";
-            } catch (const std::exception& e) {
-                LOG_ERROR << "CRITICAL: Database connection failed: " << e.what();
-            }
-        }
-    });
-
     // Add CORS support
     drogon::app().registerPreRoutingAdvice([](const drogon::HttpRequestPtr &req,
                                               drogon::FilterCallback &&defer,

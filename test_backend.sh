@@ -1,7 +1,18 @@
 #!/bin/bash
 echo "=== Running Backend Diagnostic Test ==="
-echo "1. Checking if containers are up..."
-docker compose ps
+echo -e "\n1. Starting Postgres and Kafka first..."
+docker compose up -d postgres kafka redis
+sleep 5
+
+echo -e "\n1.5 Bypassing Docker DNS (Extracting Postgres IPv4)..."
+PG_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ride-hailing-backend-postgres-1)
+echo "Postgres IP is: $PG_IP"
+sed -i "s/\"host\": \"postgres\"/\"host\": \"$PG_IP\"/g" config/config.json
+sed -i "s/\"host\": \"[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\"/\"host\": \"$PG_IP\"/g" config/config.json
+
+echo -e "\n2. Restarting App to apply config..."
+docker compose restart app
+sleep 10
 
 echo -e "\n2. Capturing FULL app logs..."
 docker compose logs --tail 30 app
