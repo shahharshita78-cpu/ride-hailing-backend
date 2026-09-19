@@ -1,4 +1,5 @@
 #include <drogon/drogon.h>
+#include <libpq-fe.h>
 #include "utils/KafkaUtils.h"
 #include "consumers/RideEventConsumer.h"
 #include <cstdlib>
@@ -17,6 +18,16 @@ int main() {
     // TEMPORARILY DISABLED: Start Kafka consumer immediately
     // static consumers::RideEventConsumer eventConsumer;
     // eventConsumer.start();
+
+    // RAW libpq connection test to figure out why Drogon's DB pool is hanging
+    LOG_INFO << "Testing RAW libpq connection to postgres...";
+    PGconn *conn = PQconnectdb("host=postgres port=5432 dbname=ride_hailing user=postgres password=postgres connect_timeout=5");
+    if (PQstatus(conn) != CONNECTION_OK) {
+        LOG_ERROR << "CRITICAL: libpq raw connection failed! Error: " << PQerrorMessage(conn);
+    } else {
+        LOG_INFO << "SUCCESS: libpq raw connection to postgres succeeded!";
+    }
+    PQfinish(conn);
 
     // Add CORS support
     drogon::app().registerPreRoutingAdvice([](const drogon::HttpRequestPtr &req,
