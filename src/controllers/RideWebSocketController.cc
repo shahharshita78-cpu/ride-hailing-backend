@@ -65,7 +65,7 @@ void RideWebSocketController::handleNewConnection(const HttpRequestPtr &req,
     std::string token = req->getParameter("token");
     std::string userId, role;
     
-    if (!::utils::jwt_::utils::verifyToken(token, userId, role)) {
+    if (!::utils::jwt_utils::verifyToken(token, userId, role)) {
         wsConnPtr->forceClose();
         return;
     }

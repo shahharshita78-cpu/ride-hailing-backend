@@ -44,7 +44,7 @@ void UserController::registerUser(const HttpRequestPtr &req, std::function<void(
 
     try {
         std::string userId = repositories::UserRepository::createUser(name, email, phone, passwordHash, role);
-        std::string token = ::utils::jwt_::utils::generateToken(userId, role);
+        std::string token = ::utils::jwt_utils::generateToken(userId, role);
 
         Json::Value ret;
         ret["message"] = "Registration successful";
@@ -99,7 +99,7 @@ void UserController::login(const HttpRequestPtr &req, std::function<void(const H
         std::string role = user["role"].asString();
 
         if (::utils::crypto::verifyPassword(password, storedHash)) {
-            std::string token = ::utils::jwt_::utils::generateToken(userId, role);
+            std::string token = ::utils::jwt_utils::generateToken(userId, role);
             
             Json::Value ret;
             ret["message"] = "Login successful";
