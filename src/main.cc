@@ -4,34 +4,8 @@
 #include <cstdlib>
 
 int main() {
-    // Connect to PostgreSQL using environment variables
-    const char* pg_user   = std::getenv("POSTGRES_USER");
-    const char* pg_pass   = std::getenv("POSTGRES_PASSWORD");
-    const char* pg_db     = std::getenv("POSTGRES_DB");
-
-    const char* pg_host = "postgres";
-    unsigned short pg_port = 5432;
-    std::string final_db = (pg_db && strlen(pg_db) > 0) ? pg_db : "ride_hailing";
-    std::string final_user = (pg_user && strlen(pg_user) > 0) ? pg_user : "postgres";
-    std::string final_pass = (pg_pass && strlen(pg_pass) > 0) ? pg_pass : "postgres";
-
-    LOG_INFO << "Configuring DB client: host=" << pg_host << " port=" << pg_port 
-             << " dbname=" << final_db << " user=" << final_user;
-
-    // Initialize DB client
-    drogon::app().createDbClient(
-        "postgresql",
-        pg_host,
-        pg_port,
-        final_db,
-        final_user,
-        final_pass,
-        1,                    // connection pool size (use 1 or 5)
-        "",                   // filename/character set
-        "default"             // client name
-    );
-
-    drogon::app().addListener("0.0.0.0", 8080);
+    // Connect using the Drogon config file
+    drogon::app().loadConfigFile("../config/config.json");
 
     // Start Kafka consumer only after Drogon has connected to the DB
     static consumers::RideEventConsumer eventConsumer;
