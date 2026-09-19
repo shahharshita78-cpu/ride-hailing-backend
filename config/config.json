@@ -6,6 +6,19 @@
       "https": false
     }
   ],
+  "db_clients": [
+    {
+      "name": "default",
+      "rdbms": "postgresql",
+      "host": "postgres",
+      "port": 5432,
+      "dbname": "ride_hailing",
+      "user": "postgres",
+      "passwd": "postgres",
+      "is_fast": false,
+      "connection_number": 5
+    }
+  ],
   "app": {
     "log": {
       "log_path": "./",
