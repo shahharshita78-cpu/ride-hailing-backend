@@ -26,5 +26,16 @@
       "log_size_limit": 100000000,
       "log_level": "DEBUG"
     }
-  }
+  },
+  "plugins": [
+    {
+      "name": "drogon::plugin::CorsPlugin",
+      "dependencies": [],
+      "config": {
+        "allow_all": true,
+        "allow_methods": "OPTIONS, GET, POST, PUT, DELETE, PATCH",
+        "allow_headers": "*"
+      }
+    }
+  ]
 }
