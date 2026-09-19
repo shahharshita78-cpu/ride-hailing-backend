@@ -30,7 +30,6 @@ int main() {
         callback(resp);
     });
 
-    utils::kafka::startConsumer();
     drogon::app().run();
     return 0;
 }

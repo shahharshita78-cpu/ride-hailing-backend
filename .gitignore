@@ -12,3 +12,6 @@ install_manifest.txt
 *.a
 *.so
 *.dylib
+
+node_modules/
+dist/

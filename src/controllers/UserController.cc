@@ -1,11 +1,12 @@
 #include "UserController.h"
 #include "../utils/CryptoUtils.h"
 #include "../utils/JwtUtils.h"
+#include "../repositories/UserRepository.h"
 #include <drogon/orm/DbClient.h>
 
-using namespace api::v1;
+using namespace api::auth;
 
-void UserController::signup(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback) {
+void UserController::registerUser(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback) {
     auto jsonPtr = req->getJsonObject();
     if (!jsonPtr) {
         auto resp = HttpResponse::newHttpResponse();
@@ -16,10 +17,10 @@ void UserController::signup(const HttpRequestPtr &req, std::function<void(const 
     }
 
     auto& json = *jsonPtr;
-    if (!json.isMember("email") || !json.isMember("password") || !json.isMember("role")) {
+    if (!json.isMember("email") || !json.isMember("password") || !json.isMember("role") || !json.isMember("name") || !json.isMember("phone")) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k400BadRequest);
-        resp->setBody("Missing email, password, or role");
+        resp->setBody("Missing required fields");
         callback(resp);
         return;
     }
@@ -27,11 +28,13 @@ void UserController::signup(const HttpRequestPtr &req, std::function<void(const 
     std::string email = json["email"].asString();
     std::string password = json["password"].asString();
     std::string role = json["role"].asString();
+    std::string name = json["name"].asString();
+    std::string phone = json["phone"].asString();
 
-    if (role != "rider" && role != "driver") {
+    if (role != "PASSENGER" && role != "DRIVER") {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k400BadRequest);
-        resp->setBody("Role must be rider or driver");
+        resp->setBody("Role must be PASSENGER or DRIVER");
         callback(resp);
         return;
     }
@@ -39,52 +42,22 @@ void UserController::signup(const HttpRequestPtr &req, std::function<void(const 
     std::string salt = utils::crypto::generateSalt();
     std::string passwordHash = utils::crypto::hashPassword(password, salt);
 
-    auto dbClient = drogon::app().getDbClient();
-    if (!dbClient) {
-        auto resp = HttpResponse::newHttpResponse();
-        resp->setStatusCode(k500InternalServerError);
-        resp->setBody("Database connection failed");
-        callback(resp);
-        return;
-    }
-
     try {
-        auto result = dbClient->execSqlSync("SELECT id FROM users WHERE email = $1", email);
-        if (!result.empty()) {
-            auto resp = HttpResponse::newHttpResponse();
-            resp->setStatusCode(k409Conflict);
-            resp->setBody("User already exists");
-            callback(resp);
-            return;
-        }
+        std::string userId = repositories::UserRepository::createUser(name, email, phone, passwordHash, role);
+        std::string token = utils::jwt_utils::generateToken(userId, role);
 
-        auto insertResult = dbClient->execSqlSync(
-            "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id",
-            email, passwordHash, role
-        );
+        Json::Value ret;
+        ret["message"] = "Registration successful";
+        ret["token"] = token;
+        ret["user_id"] = userId;
 
-        if (!insertResult.empty()) {
-            std::string userId = insertResult[0]["id"].as<std::string>();
-            std::string token = utils::jwt_utils::generateToken(userId, role);
-
-            Json::Value ret;
-            ret["message"] = "Signup successful";
-            ret["token"] = token;
-            ret["user_id"] = userId;
-
-            auto resp = HttpResponse::newHttpJsonResponse(ret);
-            callback(resp);
-        } else {
-            auto resp = HttpResponse::newHttpResponse();
-            resp->setStatusCode(k500InternalServerError);
-            resp->setBody("Failed to create user");
-            callback(resp);
-        }
-    } catch (const drogon::orm::DrogonDbException &e) {
-        LOG_ERROR << e.base().what();
+        auto resp = HttpResponse::newHttpJsonResponse(ret);
+        callback(resp);
+    } catch (const std::exception &e) {
+        LOG_ERROR << e.what();
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k500InternalServerError);
-        resp->setBody("Database error");
+        resp->setBody("Database error or user already exists");
         callback(resp);
     }
 }
@@ -111,18 +84,9 @@ void UserController::login(const HttpRequestPtr &req, std::function<void(const H
     std::string email = json["email"].asString();
     std::string password = json["password"].asString();
 
-    auto dbClient = drogon::app().getDbClient();
-    if (!dbClient) {
-        auto resp = HttpResponse::newHttpResponse();
-        resp->setStatusCode(k500InternalServerError);
-        resp->setBody("Database connection failed");
-        callback(resp);
-        return;
-    }
-    
     try {
-        auto result = dbClient->execSqlSync("SELECT id, password_hash, role FROM users WHERE email = $1", email);
-        if (result.empty()) {
+        Json::Value user = repositories::UserRepository::getUserByEmail(email);
+        if (user.isNull()) {
             auto resp = HttpResponse::newHttpResponse();
             resp->setStatusCode(k401Unauthorized);
             resp->setBody("Invalid credentials");
@@ -130,9 +94,9 @@ void UserController::login(const HttpRequestPtr &req, std::function<void(const H
             return;
         }
 
-        std::string storedHash = result[0]["password_hash"].as<std::string>();
-        std::string userId = result[0]["id"].as<std::string>();
-        std::string role = result[0]["role"].as<std::string>();
+        std::string storedHash = user["password_hash"].asString();
+        std::string userId = user["user_id"].asString();
+        std::string role = user["role"].asString();
 
         if (utils::crypto::verifyPassword(password, storedHash)) {
             std::string token = utils::jwt_utils::generateToken(userId, role);
@@ -142,6 +106,9 @@ void UserController::login(const HttpRequestPtr &req, std::function<void(const H
             ret["token"] = token;
             ret["user_id"] = userId;
             ret["role"] = role;
+            
+            if (user.isMember("passenger_id")) ret["passenger_id"] = user["passenger_id"];
+            if (user.isMember("driver_id")) ret["driver_id"] = user["driver_id"];
 
             auto resp = HttpResponse::newHttpJsonResponse(ret);
             callback(resp);
@@ -151,8 +118,8 @@ void UserController::login(const HttpRequestPtr &req, std::function<void(const H
             resp->setBody("Invalid credentials");
             callback(resp);
         }
-    } catch (const drogon::orm::DrogonDbException &e) {
-        LOG_ERROR << e.base().what();
+    } catch (const std::exception &e) {
+        LOG_ERROR << e.what();
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k500InternalServerError);
         resp->setBody("Database error");

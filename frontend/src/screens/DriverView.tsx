@@ -1,0 +1,182 @@
+import React, { useState, useEffect } from 'react';
+import CustomMap from '../components/Map';
+import BottomSheet from '../components/BottomSheet';
+import { useStore } from '../store/store';
+import api from '../api/api';
+import { wsClient } from '../ws/ws';
+
+const defaultCenter: [number, number] = [37.7749, -122.4194]; // SF
+
+const DriverView: React.FC = () => {
+  const { user, ride, setRide, clearRide, setUser } = useStore();
+  const [isOnline, setIsOnline] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [driverLocation, setDriverLocation] = useState(defaultCenter);
+
+  // Since backend lacks full driver WS push for requests, we poll the history/active queue (simulated)
+  // Or we just rely on REST to accept. In a real app we'd get a push via WS.
+  // We'll mock a received ride push if online.
+  useEffect(() => {
+    let interval: any;
+    if (isOnline && (!ride.status || ride.status === 'COMPLETED' || ride.status === 'CANCELLED')) {
+      // Simulate polling backend for requested rides
+      // We don't have a GET /api/rides/pending endpoint, so we simulate receiving one after 5s
+      interval = setTimeout(() => {
+        setRide({
+          ride_id: 'simulated-uuid-for-demo',
+          status: 'REQUESTED',
+          pickup: '123 Main St',
+          destination: '456 Market St',
+          estimated_fare: 15.50
+        });
+      }, 5000);
+    }
+    return () => clearTimeout(interval);
+  }, [isOnline, ride.status, setRide]);
+
+  // Push location updates via WS
+  useEffect(() => {
+    let locInterval: any;
+    if (isOnline && wsClient) {
+      locInterval = setInterval(() => {
+        // Move slightly to simulate driving
+        setDriverLocation(prev => {
+          const next: [number, number] = [prev[0] + 0.0001, prev[1] + 0.0001];
+          wsClient.send({ action: 'location', lat: next[0], lon: next[1] });
+          return next;
+        });
+      }, 3000);
+    }
+    return () => clearInterval(locInterval);
+  }, [isOnline]);
+
+  const handleAction = async (actionPath: string, nextStatus: any) => {
+    setLoading(true);
+    try {
+      if (ride.ride_id && ride.ride_id !== 'simulated-uuid-for-demo') {
+        await api.post(`/rides/${ride.ride_id}${actionPath}`);
+      }
+      setRide({ status: nextStatus });
+    } catch (e) {
+      console.error(e);
+      // For demo fallback if it's the simulated uuid
+      if (ride.ride_id === 'simulated-uuid-for-demo') {
+        setRide({ status: nextStatus });
+      } else {
+        alert('Action failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null, null);
+  };
+
+  const renderContent = () => {
+    if (!ride.status || ride.status === 'COMPLETED' || ride.status === 'CANCELLED') {
+      return (
+        <div className="space-y-4 text-center py-4">
+          <h2 className="text-2xl font-bold">{isOnline ? 'You are Online' : 'You are Offline'}</h2>
+          <p className="text-gray-500 mb-6">{isOnline ? 'Waiting for requests...' : 'Go online to receive trips'}</p>
+          <button 
+            onClick={() => setIsOnline(!isOnline)}
+            className={`w-full py-4 rounded-full font-bold text-lg text-white transition-colors ${
+              isOnline ? 'bg-red-600 hover:bg-red-700' : 'bg-uber-blue hover:bg-blue-700'
+            }`}
+          >
+            {isOnline ? 'GO OFFLINE' : 'GO ONLINE'}
+          </button>
+        </div>
+      );
+    }
+
+    if (ride.status === 'REQUESTED') {
+      return (
+        <div className="space-y-4">
+          <div className="text-center py-2">
+            <h2 className="text-lg font-bold text-gray-500 uppercase tracking-widest">New Trip</h2>
+            <div className="text-4xl font-bold mt-2">3 min</div>
+            <p className="text-gray-600 text-sm">away</p>
+          </div>
+          <div className="bg-uber-gray p-4 rounded-xl space-y-2">
+            <div className="font-bold">{ride.pickup}</div>
+            <div className="text-gray-500 text-sm">Dropoff: {ride.destination}</div>
+            <div className="text-xl font-bold text-green-600 mt-2">${ride.estimated_fare?.toFixed(2)}</div>
+          </div>
+          <div className="flex space-x-4 pt-2">
+            <button 
+              onClick={() => handleAction('/cancel', 'CANCELLED')}
+              className="flex-1 bg-gray-200 text-uber-black py-4 rounded-full font-bold"
+            >
+              DECLINE
+            </button>
+            <button 
+              onClick={() => handleAction('/accept', 'MATCHED')}
+              className="flex-1 bg-uber-black text-uber-white py-4 rounded-full font-bold shadow-lg"
+            >
+              ACCEPT
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (ride.status === 'MATCHED') {
+      return (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold">Pick up rider</h2>
+          <div className="bg-uber-gray p-4 rounded-xl">
+            <div className="font-bold">{ride.pickup}</div>
+          </div>
+          <button 
+            onClick={() => handleAction('/start', 'ONGOING')}
+            className="w-full bg-uber-blue text-uber-white py-4 rounded-full font-bold text-lg"
+          >
+            START TRIP
+          </button>
+        </div>
+      );
+    }
+
+    if (ride.status === 'ONGOING') {
+      return (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold">Drop off rider</h2>
+          <div className="bg-uber-gray p-4 rounded-xl">
+            <div className="font-bold">{ride.destination}</div>
+          </div>
+          <button 
+            onClick={() => handleAction('/complete', 'COMPLETED')}
+            className="w-full bg-red-600 text-uber-white py-4 rounded-full font-bold text-lg"
+          >
+            COMPLETE TRIP
+          </button>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div className="relative h-screen w-full bg-gray-100 overflow-hidden">
+      <div className="absolute top-4 left-4 z-50 flex flex-col space-y-2">
+        <div className="bg-white shadow px-4 py-2 rounded-full font-bold border-2 border-uber-blue">Uber Driver</div>
+        <button onClick={handleLogout} className="bg-white shadow px-3 py-1 rounded-full text-xs text-red-500 font-bold">Logout</button>
+      </div>
+
+      <CustomMap 
+        center={driverLocation} 
+        driverLocation={driverLocation}
+      />
+      
+      <BottomSheet>
+        {renderContent()}
+      </BottomSheet>
+    </div>
+  );
+};
+
+export default DriverView;

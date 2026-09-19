@@ -1,7 +1,10 @@
 #include "RideWebSocketController.h"
 #include "../utils/JwtUtils.h"
+#include "../utils/RedisUtils.h"
+#include <drogon/orm/DbClient.h>
+#include <json/json.h>
 
-using namespace api::v1;
+using namespace api::rides; // Changed namespace
 
 std::unordered_map<std::string, std::set<WebSocketConnectionPtr>> RideWebSocketController::userConnections_;
 std::mutex RideWebSocketController::mutex_;
@@ -9,6 +12,43 @@ std::mutex RideWebSocketController::mutex_;
 void RideWebSocketController::handleNewMessage(const WebSocketConnectionPtr& wsConnPtr,
                                               std::string &&message,
                                               const WebSocketMessageType &type) {
+    if (wsConnPtr->hasContext()) {
+        auto context = wsConnPtr->getContext<std::pair<std::string, std::string>>(); // <userId, driverId>
+        std::string userId = context->first;
+        std::string driverId = context->second;
+
+        try {
+            Json::Value root;
+            Json::Reader reader;
+            if (reader.parse(message, root) && root.isMember("action") && root["action"].asString() == "location") {
+                if (!driverId.empty()) {
+                    double lat = root["lat"].asDouble();
+                    double lon = root["lon"].asDouble();
+                    utils::redis::updateDriverLocation(driverId, lon, lat);
+                    wsConnPtr->send("{\"status\":\"Location updated\"}");
+
+                    // Notify passenger if there is an active ride
+                    auto dbClient = drogon::app().getDbClient();
+                    auto pRes = dbClient->execSqlSync(
+                        "SELECT p.user_id FROM passenger p JOIN ride r ON p.passenger_id = r.passenger_id "
+                        "WHERE r.driver_id = $1 AND r.ride_status IN ('MATCHED', 'DRIVER_ARRIVING', 'ONGOING') LIMIT 1", driverId
+                    );
+                    if (!pRes.empty()) {
+                        std::string passUserId = pRes[0]["user_id"].as<std::string>();
+                        Json::Value locationMsg;
+                        locationMsg["event"] = "location_update";
+                        locationMsg["lat"] = lat;
+                        locationMsg["lon"] = lon;
+                        Json::FastWriter writer;
+                        notifyUser(passUserId, writer.write(locationMsg));
+                    }
+                } else {
+                    wsConnPtr->send("{\"error\":\"Only drivers can update location\"}");
+                }
+                return;
+            }
+        } catch (...) {}
+    }
     wsConnPtr->send("Received: " + message);
 }
 
@@ -22,7 +62,16 @@ void RideWebSocketController::handleNewConnection(const HttpRequestPtr &req,
         return;
     }
     
-    wsConnPtr->setContext(std::make_shared<std::string>(userId));
+    std::string driverId = "";
+    if (role == "DRIVER") {
+        auto dbClient = drogon::app().getDbClient();
+        auto dRes = dbClient->execSqlSync("SELECT driver_id FROM driver WHERE user_id = $1", userId);
+        if (!dRes.empty()) {
+            driverId = dRes[0]["driver_id"].as<std::string>();
+        }
+    }
+
+    wsConnPtr->setContext(std::make_shared<std::pair<std::string, std::string>>(userId, driverId));
     
     std::lock_guard<std::mutex> lock(mutex_);
     userConnections_[userId].insert(wsConnPtr);
@@ -30,11 +79,12 @@ void RideWebSocketController::handleNewConnection(const HttpRequestPtr &req,
 
 void RideWebSocketController::handleConnectionClosed(const WebSocketConnectionPtr& wsConnPtr) {
     if (wsConnPtr->hasContext()) {
-        auto userIdPtr = wsConnPtr->getContext<std::string>();
+        auto context = wsConnPtr->getContext<std::pair<std::string, std::string>>();
+        std::string userId = context->first;
         std::lock_guard<std::mutex> lock(mutex_);
-        userConnections_[*userIdPtr].erase(wsConnPtr);
-        if (userConnections_[*userIdPtr].empty()) {
-            userConnections_.erase(*userIdPtr);
+        userConnections_[userId].erase(wsConnPtr);
+        if (userConnections_[userId].empty()) {
+            userConnections_.erase(userId);
         }
     }
 }
@@ -45,5 +95,21 @@ void RideWebSocketController::notifyUser(const std::string& userId, const std::s
         for (auto& conn : userConnections_[userId]) {
             conn->send(message);
         }
+    }
+}
+
+void RideWebSocketController::notifyPassengerByRideId(const std::string& rideId, const Json::Value& message) {
+    try {
+        auto dbClient = drogon::app().getDbClient();
+        auto pRes = dbClient->execSqlSync(
+            "SELECT p.user_id FROM passenger p JOIN ride r ON p.passenger_id = r.passenger_id WHERE r.ride_id = $1", rideId
+        );
+        if (!pRes.empty()) {
+            std::string passUserId = pRes[0]["user_id"].as<std::string>();
+            Json::FastWriter writer;
+            notifyUser(passUserId, writer.write(message));
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR << "Failed to notify passenger: " << e.what();
     }
 }

@@ -7,7 +7,7 @@
 using namespace drogon;
 
 namespace api {
-namespace v1 {
+namespace rides {
 
 class RideWebSocketController : public drogon::WebSocketController<RideWebSocketController> {
 public:
@@ -18,10 +18,11 @@ public:
                              const WebSocketConnectionPtr&) override;
     void handleConnectionClosed(const WebSocketConnectionPtr&) override;
     WS_PATH_LIST_BEGIN
-    WS_PATH_ADD("/ws/rides");
+    WS_PATH_ADD("/api/ws");
     WS_PATH_LIST_END
 
     static void notifyUser(const std::string& userId, const std::string& message);
+    static void notifyPassengerByRideId(const std::string& rideId, const Json::Value& message);
 
 private:
     static std::unordered_map<std::string, std::set<WebSocketConnectionPtr>> userConnections_;
