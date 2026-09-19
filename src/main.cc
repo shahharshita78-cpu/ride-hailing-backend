@@ -1,8 +1,13 @@
 #include <drogon/drogon.h>
 #include "utils/KafkaUtils.h"
+#include "consumers/RideEventConsumer.h"
 
 int main() {
     drogon::app().addListener("0.0.0.0", 8080);
+    
+    // Start Kafka consumer
+    static consumers::RideEventConsumer eventConsumer;
+    eventConsumer.start();
     
     // Test route
     drogon::app().registerHandler(

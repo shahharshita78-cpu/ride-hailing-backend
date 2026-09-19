@@ -12,6 +12,7 @@ public:
     ADD_METHOD_TO(RideController::requestRide, "/api/rides", Post, "JwtFilter");
     ADD_METHOD_TO(RideController::getRide, "/api/rides/{id}", Get, "JwtFilter");
     ADD_METHOD_TO(RideController::getHistory, "/api/rides/history", Get, "JwtFilter");
+    ADD_METHOD_TO(RideController::getActiveRide, "/api/rides/active", Get, "JwtFilter");
     
     ADD_METHOD_TO(RideController::acceptRide, "/api/rides/{id}/accept", Post, "JwtFilter");
     ADD_METHOD_TO(RideController::startRide, "/api/rides/{id}/start", Post, "JwtFilter");
@@ -22,6 +23,7 @@ public:
     void requestRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback);
     void getRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback, std::string id);
     void getHistory(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback);
+    void getActiveRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback);
     
     void acceptRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback, std::string id);
     void startRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback, std::string id);

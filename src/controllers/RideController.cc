@@ -50,6 +50,14 @@ void RideController::requestRide(const HttpRequestPtr &req, std::function<void(c
         Json::Value ret;
         ret["ride_id"] = rideId;
         ret["status"] = "REQUESTED";
+        
+        Json::Value driverMsg;
+        driverMsg["event"] = "ride_request";
+        driverMsg["ride_id"] = rideId;
+        driverMsg["pickup"] = pickup;
+        driverMsg["destination"] = destination;
+        driverMsg["estimated_fare"] = estFare;
+        RideWebSocketController::notifyAllDrivers(driverMsg);
 
         auto resp = HttpResponse::newHttpJsonResponse(ret);
         callback(resp);
@@ -183,5 +191,13 @@ void RideController::getHistory(const HttpRequestPtr &req, std::function<void(co
     // Simplified for demo, returns an empty array
     Json::Value arr(Json::arrayValue);
     auto resp = HttpResponse::newHttpJsonResponse(arr);
+    callback(resp);
+}
+
+void RideController::getActiveRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback) {
+    auto userId = req->getAttributes()->get<std::string>("user_id");
+    auto role = req->getAttributes()->get<std::string>("role");
+    Json::Value ride = repositories::RideRepository::getActiveRideForUser(userId, role);
+    auto resp = HttpResponse::newHttpJsonResponse(ride);
     callback(resp);
 }

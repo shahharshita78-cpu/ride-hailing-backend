@@ -3,16 +3,30 @@ import CustomMap from '../components/Map';
 import BottomSheet from '../components/BottomSheet';
 import { useStore } from '../store/store';
 import api from '../api/api';
-import { Search, MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation } from 'lucide-react';
 import { wsClient } from '../ws/ws';
 
 const defaultCenter: [number, number] = [37.7749, -122.4194]; // SF
 
 const RiderView: React.FC = () => {
-  const { user, ride, setRide, clearRide, setUser } = useStore();
+  const { ride, setRide, clearRide, setUser } = useStore();
   const [pickup, setPickup] = useState('');
   const [destination, setDestination] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchActiveRide = async () => {
+      try {
+        const res = await api.get('/rides/active');
+        if (res.data && res.data.ride_id) {
+          setRide(res.data);
+        }
+      } catch (e) {
+        // Ignore 404s or empty
+      }
+    };
+    fetchActiveRide();
+  }, [setRide]);
 
   // Hook into WS for real-time location and status updates
   useEffect(() => {

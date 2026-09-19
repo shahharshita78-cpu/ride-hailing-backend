@@ -53,3 +53,30 @@ Json::Value RideRepository::getRide(const std::string& rideId) {
 }
 
 }
+
+Json::Value RideRepository::getActiveRideForUser(const std::string& userId, const std::string& role) {
+    auto dbClient = drogon::app().getDbClient();
+    drogon::orm::Result result;
+    if (role == "PASSENGER") {
+        result = dbClient->execSqlSync(
+            "SELECT r.* FROM ride r JOIN passenger p ON r.passenger_id = p.passenger_id " 
+            "WHERE p.user_id = $1 AND r.ride_status NOT IN ('COMPLETED', 'CANCELLED') LIMIT 1", userId
+        );
+    } else {
+        result = dbClient->execSqlSync(
+            "SELECT r.* FROM ride r JOIN driver d ON r.driver_id = d.driver_id " 
+            "WHERE d.user_id = $1 AND r.ride_status NOT IN ('COMPLETED', 'CANCELLED') LIMIT 1", userId
+        );
+    }
+    if (result.empty()) return Json::Value();
+    
+    Json::Value ride;
+    ride["ride_id"] = result[0]["ride_id"].as<std::string>();
+    ride["passenger_id"] = result[0]["passenger_id"].as<std::string>();
+    ride["driver_id"] = result[0]["driver_id"].isNull() ? "" : result[0]["driver_id"].as<std::string>();
+    ride["ride_status"] = result[0]["ride_status"].as<std::string>();
+    ride["pickup"] = result[0]["pickup"].as<std::string>();
+    ride["destination"] = result[0]["destination"].as<std::string>();
+    return ride;
+}
+

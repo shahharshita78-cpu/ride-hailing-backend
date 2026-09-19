@@ -8,41 +8,53 @@ import { wsClient } from '../ws/ws';
 const defaultCenter: [number, number] = [37.7749, -122.4194]; // SF
 
 const DriverView: React.FC = () => {
-  const { user, ride, setRide, clearRide, setUser } = useStore();
+  const { ride, setRide, setUser } = useStore();
   const [isOnline, setIsOnline] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [driverLocation, setDriverLocation] = useState(defaultCenter);
 
-  // Since backend lacks full driver WS push for requests, we poll the history/active queue (simulated)
-  // Or we just rely on REST to accept. In a real app we'd get a push via WS.
-  // We'll mock a received ride push if online.
   useEffect(() => {
-    let interval: any;
-    if (isOnline && (!ride.status || ride.status === 'COMPLETED' || ride.status === 'CANCELLED')) {
-      // Simulate polling backend for requested rides
-      // We don't have a GET /api/rides/pending endpoint, so we simulate receiving one after 5s
-      interval = setTimeout(() => {
-        setRide({
-          ride_id: 'simulated-uuid-for-demo',
-          status: 'REQUESTED',
-          pickup: '123 Main St',
-          destination: '456 Market St',
-          estimated_fare: 15.50
-        });
-      }, 5000);
-    }
-    return () => clearTimeout(interval);
-  }, [isOnline, ride.status, setRide]);
+    const fetchActiveRide = async () => {
+      try {
+        const res = await api.get('/rides/active');
+        if (res.data && res.data.ride_id) {
+          setRide(res.data);
+          setIsOnline(true);
+        }
+      } catch (e) {
+        // Ignore
+      }
+    };
+    fetchActiveRide();
+  }, [setRide]);
 
-  // Push location updates via WS
+  useEffect(() => {
+    const onRideRequest = (data: any) => {
+      if (data.event === 'ride_request') {
+        setRide({
+          ride_id: data.ride_id,
+          status: 'REQUESTED',
+          pickup: data.pickup,
+          destination: data.destination,
+          estimated_fare: data.estimated_fare
+        });
+      }
+    };
+
+    if (isOnline) {
+      wsClient.on('ride_request', onRideRequest);
+    }
+    
+    return () => {
+      wsClient.off('ride_request', onRideRequest);
+    };
+  }, [isOnline, setRide]);
+
   useEffect(() => {
     let locInterval: any;
     if (isOnline && wsClient) {
       locInterval = setInterval(() => {
-        // Move slightly to simulate driving
         setDriverLocation(prev => {
           const next: [number, number] = [prev[0] + 0.0001, prev[1] + 0.0001];
-          wsClient.send({ action: 'location', lat: next[0], lon: next[1] });
           return next;
         });
       }, 3000);
@@ -50,23 +62,20 @@ const DriverView: React.FC = () => {
     return () => clearInterval(locInterval);
   }, [isOnline]);
 
+  useEffect(() => {
+    if (isOnline && wsClient) {
+      wsClient.send({ action: 'location', lat: driverLocation[0], lon: driverLocation[1] });
+    }
+  }, [driverLocation, isOnline]);
+
   const handleAction = async (actionPath: string, nextStatus: any) => {
-    setLoading(true);
+    if (!ride.ride_id) return;
     try {
-      if (ride.ride_id && ride.ride_id !== 'simulated-uuid-for-demo') {
-        await api.post(`/rides/${ride.ride_id}${actionPath}`);
-      }
+      await api.post(`/rides/${ride.ride_id}${actionPath}`);
       setRide({ status: nextStatus });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      // For demo fallback if it's the simulated uuid
-      if (ride.ride_id === 'simulated-uuid-for-demo') {
-        setRide({ status: nextStatus });
-      } else {
-        alert('Action failed');
-      }
-    } finally {
-      setLoading(false);
+      alert(e.response?.data || 'Action failed');
     }
   };
 

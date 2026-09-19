@@ -44,3 +44,10 @@ graph TD
 - `GET /rides/:id`
 - `POST /rides/:id/cancel`
 - `WS /ws/rides`
+
+## Database Reset
+To completely reset the database and apply the init schema on the next run, run:
+``bash
+docker compose down -v
+docker compose up -d
+``

@@ -27,27 +27,35 @@ void RideWebSocketController::handleNewMessage(const WebSocketConnectionPtr& wsC
                     utils::redis::updateDriverLocation(driverId, lon, lat);
                     wsConnPtr->send("{\"status\":\"Location updated\"}");
 
-                    // Notify passenger if there is an active ride
+                    // Notify passenger if there is an active ride (async to avoid blocking event loop)
                     auto dbClient = drogon::app().getDbClient();
-                    auto pRes = dbClient->execSqlSync(
+                    dbClient->execSqlAsync(
                         "SELECT p.user_id FROM passenger p JOIN ride r ON p.passenger_id = r.passenger_id "
-                        "WHERE r.driver_id = $1 AND r.ride_status IN ('MATCHED', 'DRIVER_ARRIVING', 'ONGOING') LIMIT 1", driverId
+                        "WHERE r.driver_id = $1 AND r.ride_status IN ('MATCHED', 'DRIVER_ARRIVING', 'ONGOING') LIMIT 1",
+                        [lat, lon](const drogon::orm::Result& pRes) {
+                            if (!pRes.empty()) {
+                                std::string passUserId = pRes[0]["user_id"].as<std::string>();
+                                Json::Value locationMsg;
+                                locationMsg["event"] = "location_update";
+                                locationMsg["lat"] = lat;
+                                locationMsg["lon"] = lon;
+                                Json::FastWriter writer;
+                                RideWebSocketController::notifyUser(passUserId, writer.write(locationMsg));
+                            }
+                        },
+                        [](const drogon::orm::DrogonDbException& e) {
+                            LOG_ERROR << "DB error notifying passenger of location: " << e.base().what();
+                        },
+                        driverId
                     );
-                    if (!pRes.empty()) {
-                        std::string passUserId = pRes[0]["user_id"].as<std::string>();
-                        Json::Value locationMsg;
-                        locationMsg["event"] = "location_update";
-                        locationMsg["lat"] = lat;
-                        locationMsg["lon"] = lon;
-                        Json::FastWriter writer;
-                        notifyUser(passUserId, writer.write(locationMsg));
-                    }
                 } else {
                     wsConnPtr->send("{\"error\":\"Only drivers can update location\"}");
                 }
                 return;
             }
-        } catch (...) {}
+        } catch (const std::exception& e) {
+            LOG_ERROR << "WS message parse error: " << e.what();
+        }
     }
     wsConnPtr->send("Received: " + message);
 }
@@ -62,19 +70,30 @@ void RideWebSocketController::handleNewConnection(const HttpRequestPtr &req,
         return;
     }
     
-    std::string driverId = "";
     if (role == "DRIVER") {
         auto dbClient = drogon::app().getDbClient();
-        auto dRes = dbClient->execSqlSync("SELECT driver_id FROM driver WHERE user_id = $1", userId);
-        if (!dRes.empty()) {
-            driverId = dRes[0]["driver_id"].as<std::string>();
-        }
+        dbClient->execSqlAsync(
+            "SELECT driver_id FROM driver WHERE user_id = $1",
+            [wsConnPtr, userId](const drogon::orm::Result& dRes) {
+                std::string driverId = "";
+                if (!dRes.empty()) {
+                    driverId = dRes[0]["driver_id"].as<std::string>();
+                }
+                wsConnPtr->setContext(std::make_shared<std::pair<std::string, std::string>>(userId, driverId));
+                std::lock_guard<std::mutex> lock(mutex_);
+                userConnections_[userId].insert(wsConnPtr);
+            },
+            [wsConnPtr](const drogon::orm::DrogonDbException& e) {
+                LOG_ERROR << "DB error on WS connect: " << e.base().what();
+                wsConnPtr->forceClose();
+            },
+            userId
+        );
+    } else {
+        wsConnPtr->setContext(std::make_shared<std::pair<std::string, std::string>>(userId, ""));
+        std::lock_guard<std::mutex> lock(mutex_);
+        userConnections_[userId].insert(wsConnPtr);
     }
-
-    wsConnPtr->setContext(std::make_shared<std::pair<std::string, std::string>>(userId, driverId));
-    
-    std::lock_guard<std::mutex> lock(mutex_);
-    userConnections_[userId].insert(wsConnPtr);
 }
 
 void RideWebSocketController::handleConnectionClosed(const WebSocketConnectionPtr& wsConnPtr) {
@@ -101,15 +120,37 @@ void RideWebSocketController::notifyUser(const std::string& userId, const std::s
 void RideWebSocketController::notifyPassengerByRideId(const std::string& rideId, const Json::Value& message) {
     try {
         auto dbClient = drogon::app().getDbClient();
-        auto pRes = dbClient->execSqlSync(
-            "SELECT p.user_id FROM passenger p JOIN ride r ON p.passenger_id = r.passenger_id WHERE r.ride_id = $1", rideId
+        Json::FastWriter writer;
+        std::string msgStr = writer.write(message);
+        dbClient->execSqlAsync(
+            "SELECT p.user_id FROM passenger p JOIN ride r ON p.passenger_id = r.passenger_id WHERE r.ride_id = $1",
+            [msgStr](const drogon::orm::Result& pRes) {
+                if (!pRes.empty()) {
+                    std::string passUserId = pRes[0]["user_id"].as<std::string>();
+                    RideWebSocketController::notifyUser(passUserId, msgStr);
+                }
+            },
+            [](const drogon::orm::DrogonDbException& e) {
+                LOG_ERROR << "Failed to notify passenger: " << e.base().what();
+            },
+            rideId
         );
-        if (!pRes.empty()) {
-            std::string passUserId = pRes[0]["user_id"].as<std::string>();
-            Json::FastWriter writer;
-            notifyUser(passUserId, writer.write(message));
-        }
     } catch (const std::exception& e) {
-        LOG_ERROR << "Failed to notify passenger: " << e.what();
+        LOG_ERROR << "notifyPassengerByRideId error: " << e.what();
+    }
+}
+
+void RideWebSocketController::notifyAllDrivers(const Json::Value& message) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    Json::FastWriter writer;
+    std::string msgStr = writer.write(message);
+    for (const auto& [userId, conns] : userConnections_) {
+        if (conns.empty()) continue;
+        auto context = (*conns.begin())->getContext<std::pair<std::string, std::string>>();
+        if (context && !context->second.empty()) {
+            for (const auto& conn : conns) {
+                conn->send(msgStr);
+            }
+        }
     }
 }

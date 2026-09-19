@@ -4,12 +4,19 @@ class WebSocketClient {
   private ws: WebSocket | null = null;
   private url: string;
   private callbacks: Map<string, Set<MessageCallback>> = new Map();
+  private token: string | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private isIntentionalDisconnect = false;
 
   constructor(url: string) {
     this.url = url;
   }
 
   connect(token: string) {
+    this.token = token;
+    this.isIntentionalDisconnect = false;
+    
     if (this.ws) {
       this.ws.close();
     }
@@ -18,6 +25,7 @@ class WebSocketClient {
 
     this.ws.onopen = () => {
       console.log('WS Connected');
+      this.reconnectAttempts = 0;
     };
 
     this.ws.onmessage = (event) => {
@@ -35,11 +43,18 @@ class WebSocketClient {
 
     this.ws.onclose = () => {
       console.log('WS Disconnected');
-      // Simple reconnect logic could go here
+      if (!this.isIntentionalDisconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+        const backoffMs = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
+        this.reconnectAttempts++;
+        setTimeout(() => {
+          if (this.token) this.connect(this.token);
+        }, backoffMs);
+      }
     };
   }
 
   disconnect() {
+    this.isIntentionalDisconnect = true;
     if (this.ws) {
       this.ws.close();
       this.ws = null;

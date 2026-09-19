@@ -23,6 +23,7 @@ public:
 
     static void notifyUser(const std::string& userId, const std::string& message);
     static void notifyPassengerByRideId(const std::string& rideId, const Json::Value& message);
+    static void notifyAllDrivers(const Json::Value& message);
 
 private:
     static std::unordered_map<std::string, std::set<WebSocketConnectionPtr>> userConnections_;

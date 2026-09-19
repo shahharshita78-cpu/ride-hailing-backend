@@ -9,5 +9,6 @@ public:
     static bool acceptRide(const std::string& rideId, const std::string& driverId);
     static bool updateRideStatus(const std::string& rideId, const std::string& status);
     static Json::Value getRide(const std::string& rideId);
+    static Json::Value getActiveRideForUser(const std::string& userId, const std::string& role);
 };
 }
