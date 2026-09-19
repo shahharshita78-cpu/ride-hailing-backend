@@ -4,6 +4,13 @@
 #include <cstdlib>
 
 int main() {
+    // Force unbuffered stdout/stderr
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+
+    // Enable Trace logging
+    drogon::app().setLogLevel(trantor::Logger::kTrace);
+
     // Configure server
     drogon::app().addListener("0.0.0.0", 8080);
     // Configure DB manually
