@@ -28,7 +28,7 @@ services:
       - ride_network
 
   kafka:
-    image: bitnami/kafka:3.4.1
+    image: bitnami/kafka:latest
     restart: on-failure
     ports:
       - "9092:9092"
