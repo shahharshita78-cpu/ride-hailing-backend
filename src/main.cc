@@ -10,9 +10,10 @@ int main() {
     const char* pg_db     = std::getenv("POSTGRES_DB");
 
     const char* pg_host = "postgres";
-    int pg_port = 5432;
-    std::string final_db = pg_db ? pg_db : "ride_hailing";
-    std::string final_user = pg_user ? pg_user : "postgres";
+    unsigned short pg_port = 5432;
+    std::string final_db = (pg_db && strlen(pg_db) > 0) ? pg_db : "ride_hailing";
+    std::string final_user = (pg_user && strlen(pg_user) > 0) ? pg_user : "postgres";
+    std::string final_pass = (pg_pass && strlen(pg_pass) > 0) ? pg_pass : "postgres";
 
     LOG_INFO << "Configuring DB client: host=" << pg_host << " port=" << pg_port 
              << " dbname=" << final_db << " user=" << final_user;
@@ -24,9 +25,9 @@ int main() {
         pg_port,
         final_db,
         final_user,
-        pg_pass ? pg_pass : "postgres",
-        5,                    // connection pool size
-        "",                   // unix socket (empty = TCP)
+        final_pass,
+        1,                    // connection pool size (use 1 or 5)
+        "",                   // filename/character set
         "default"             // client name
     );
 
