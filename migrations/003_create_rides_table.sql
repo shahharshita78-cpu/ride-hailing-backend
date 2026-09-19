@@ -1,0 +1,19 @@
+CREATE TABLE rides (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    rider_id UUID REFERENCES users(id),
+    driver_id UUID REFERENCES users(id),
+    pickup_lat DOUBLE PRECISION NOT NULL,
+    pickup_lon DOUBLE PRECISION NOT NULL,
+    dropoff_lat DOUBLE PRECISION NOT NULL,
+    dropoff_lon DOUBLE PRECISION NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'REQUESTED',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE ride_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ride_id UUID REFERENCES rides(id),
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
