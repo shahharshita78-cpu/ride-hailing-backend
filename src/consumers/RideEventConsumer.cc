@@ -56,6 +56,10 @@ void RideEventConsumer::run() {
             if (!key.empty() && !payload.empty()) {
                 try {
                     auto dbClient = drogon::app().getDbClient();
+                    if (!dbClient) {
+                        LOG_ERROR << "RideEventConsumer: DB client not available, skipping event: " << key;
+                        continue;
+                    }
                     dbClient->execSqlSync(
                         "INSERT INTO ride_event (ride_id, event_type) VALUES ($1, $2)",
                         key, payload
