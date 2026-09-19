@@ -20,16 +20,14 @@ curl -4 -s -m 10 -v -X POST -H "Content-Type: application/json" -d '{"name": "te
 CURL_STATUS=$?
 
 echo -e "\n\n4. Results:"
-if [ $CURL_STATUS -eq 28 ]; then
-    echo "❌ ERROR: Request HUNG and TIMED OUT after 10 seconds!"
-    echo "The backend is running but stuck waiting for a database connection (execSqlSync blocked)."
-elif [ $CURL_STATUS -eq 7 ]; then
-    echo "❌ ERROR: Connection Refused!"
-    echo "The backend server is completely dead or still compiling."
-elif [ $CURL_STATUS -eq 0 ]; then
-    echo "✅ Request completed!"
-    echo "Response from server:"
+if [ $CURL_STATUS -eq 0 ]; then
+    echo "✅ Success! Output:"
     cat response.txt
+elif [ $CURL_STATUS -eq 28 ]; then
+    echo "❌ ERROR: Request HUNG and TIMED OUT after 10 seconds!"
 else
     echo "❌ Request failed with curl exit code $CURL_STATUS"
 fi
+
+echo -e "\n5. Capturing App Logs POST-request to check for crashes..."
+docker compose logs --tail 50 app
