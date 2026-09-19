@@ -9,7 +9,7 @@
   "db_clients": [
     {
       "name": "default",
-      "rdbms": "postgres",
+      "rdbms": "postgresql",
       "host": "postgres",
       "port": 5432,
       "dbname": "ride_hailing",
