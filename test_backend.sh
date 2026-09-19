@@ -3,8 +3,11 @@ echo "=== Running Backend Diagnostic Test ==="
 echo "1. Checking if containers are up..."
 docker compose ps
 
-echo -e "\n2. Capturing latest app logs (FULL):"
+echo -e "\n2. Capturing FULL app logs..."
 docker compose logs --tail 30 app
+
+echo -e "\n3. Capturing FULL postgres logs..."
+docker compose logs --tail 30 postgres
 
 echo -e "\n3. Testing API endpoint (with 10-second timeout)..."
 curl -s -m 10 -v -X POST -H "Content-Type: application/json" -d '{"name": "test", "email": "test_api_check@gmail.com", "phone": "1234569999", "password": "abc", "role": "PASSENGER"}' http://localhost:8080/api/auth/register > response.txt
