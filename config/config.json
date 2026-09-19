@@ -9,7 +9,7 @@
   "db_clients": [
     {
       "name": "default",
-      "rdbms": "postgresql",
+      "rdbms": "postgres",
       "host": "postgres",
       "port": 5432,
       "dbname": "ride_hailing",
@@ -17,17 +17,6 @@
       "passwd": "postgres",
       "is_fast": false,
       "connection_number": 5
-    }
-  ],
-  "plugins": [
-    {
-      "name": "drogon::plugin::CorsPlugin",
-      "dependencies": [],
-      "config": {
-        "allow_all": true,
-        "allow_methods": "OPTIONS, GET, POST, PUT, DELETE, PATCH",
-        "allow_headers": "*"
-      }
     }
   ]
 }

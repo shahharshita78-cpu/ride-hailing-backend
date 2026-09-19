@@ -63,6 +63,7 @@ void UserController::registerUser(const HttpRequestPtr &req, std::function<void(
         LOG_ERROR << e.what();
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k500InternalServerError);
+        resp->addHeader("Access-Control-Allow-Origin", "*");
         resp->setBody("Database error or user already exists");
         callback(resp);
     }
@@ -133,7 +134,8 @@ void UserController::login(const HttpRequestPtr &req, std::function<void(const H
         LOG_ERROR << e.what();
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k500InternalServerError);
-        resp->setBody("Database error");
+        resp->addHeader("Access-Control-Allow-Origin", "*");
+        resp->setBody("Login failed");
         callback(resp);
     }
 }
