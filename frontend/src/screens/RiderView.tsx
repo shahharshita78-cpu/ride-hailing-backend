@@ -14,7 +14,16 @@ const RiderView: React.FC = () => {
   const [destination, setDestination] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter);
+
   useEffect(() => {
+    // Get actual user location
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        setMapCenter([position.coords.latitude, position.coords.longitude]);
+      });
+    }
+
     const fetchActiveRide = async () => {
       try {
         const res = await api.get('/rides/active');
@@ -172,7 +181,7 @@ const RiderView: React.FC = () => {
       </div>
 
       <CustomMap 
-        center={defaultCenter} 
+        center={mapCenter} 
         driverLocation={ride.driver_location ? [ride.driver_location.lat, ride.driver_location.lon] : null}
       />
       

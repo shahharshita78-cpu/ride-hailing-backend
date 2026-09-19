@@ -50,16 +50,26 @@ const DriverView: React.FC = () => {
   }, [isOnline, setRide]);
 
   useEffect(() => {
-    let locInterval: any;
-    if (isOnline && wsClient) {
-      locInterval = setInterval(() => {
-        setDriverLocation(prev => {
-          const next: [number, number] = [prev[0] + 0.0001, prev[1] + 0.0001];
-          return next;
-        });
-      }, 3000);
+    let watchId: number;
+    
+    if (isOnline && wsClient && 'geolocation' in navigator) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const newLoc: [number, number] = [position.coords.latitude, position.coords.longitude];
+          setDriverLocation(newLoc);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+        },
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+      );
     }
-    return () => clearInterval(locInterval);
+
+    return () => {
+      if (watchId !== undefined) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, [isOnline]);
 
   useEffect(() => {
