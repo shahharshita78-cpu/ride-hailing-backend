@@ -7,7 +7,7 @@ int main() {
     // Configure server
     drogon::app().addListener("0.0.0.0", 8080);
     // Configure DB manually
-    drogon::app().createDbClient("postgresql", "host=postgres port=5432 dbname=ride_hailing user=postgres password=postgres", 5);
+    drogon::app().createDbClient("postgresql", "postgres", 5432, "ride_hailing", "postgres", "postgres", 5, "", "default", false);
 
     // Start Kafka consumer only after Drogon has connected to the DB
     static consumers::RideEventConsumer eventConsumer;
