@@ -11,38 +11,12 @@ int main() {
     // Enable Trace logging
     drogon::app().setLogLevel(trantor::Logger::kTrace);
 
-    // Configure server
-    drogon::app().addListener("0.0.0.0", 8080);
-    // Configure DB manually
-    drogon::app().createDbClient("postgresql", "postgres", 5432, "ride_hailing", "postgres", "postgres", 5, "", "default", false);
+    // Connect using the Drogon config file
+    drogon::app().loadConfigFile("../config/config.json");
 
-    // Start Kafka consumer only after Drogon has connected to the DB
+    // Start Kafka consumer immediately
     static consumers::RideEventConsumer eventConsumer;
-    drogon::app().registerBeginningAdvice([]() {
-        auto checkDb = std::make_shared<std::function<void(int)>>();
-        *checkDb = [checkDb](int attempt) {
-            auto dbClient = drogon::app().getDbClient();
-            dbClient->execSqlAsync(
-                "SELECT 1",
-                [checkDb](const drogon::orm::Result& result) {
-                    LOG_INFO << "DB connectivity OK";
-                    eventConsumer.start();
-                },
-                [checkDb, attempt](const drogon::orm::DrogonDbException& e) {
-                    LOG_ERROR << "DB connectivity FAILED: " << e.base().what();
-                    if (attempt < 10) {
-                        LOG_INFO << "Retrying DB connectivity check in 3 seconds (attempt " << attempt + 1 << " of 10)...";
-                        drogon::app().getLoop()->runAfter(3.0, [checkDb, attempt]() {
-                            (*checkDb)(attempt + 1);
-                        });
-                    } else {
-                        LOG_ERROR << "Failed to connect to DB after 10 attempts";
-                    }
-                }
-            );
-        };
-        (*checkDb)(1);
-    });
+    eventConsumer.start();
 
     // Add CORS support
     drogon::app().registerPreRoutingAdvice([](const drogon::HttpRequestPtr &req,

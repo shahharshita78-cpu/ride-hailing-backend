@@ -9,6 +9,9 @@ docker compose logs --tail 30 app
 echo -e "\n3. Capturing FULL postgres logs..."
 docker compose logs --tail 30 postgres
 
+echo -e "\n3.5 Testing network connectivity inside app container..."
+docker exec ride-hailing-backend-app-1 curl -v telnet://postgres:5432 || echo "Postgres unreachable from app!"
+
 echo -e "\n3. Testing API endpoint (with 10-second timeout)..."
 curl -s -m 10 -v -X POST -H "Content-Type: application/json" -d '{"name": "test", "email": "test_api_check@gmail.com", "phone": "1234569999", "password": "abc", "role": "PASSENGER"}' http://localhost:8080/api/auth/register > response.txt
 CURL_STATUS=$?
