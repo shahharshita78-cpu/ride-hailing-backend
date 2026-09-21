@@ -1,163 +1,107 @@
-# Distributed Ride-Hailing Backend
+# Ride Hailing Backend
 
-A production-grade distributed ride-hailing backend built in **C++** as a portfolio project.
-It demonstrates a microservice-style architecture with real-time communication, async processing, and clean layered code organization.
+## Overview
+A distributed ride-hailing backend built in C++ as a portfolio project. It provides REST APIs for authentication, drivers, rides, ratings, and real-time ride updates using WebSockets.
 
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| HTTP Framework | [Drogon](https://github.com/drogonframework/drogon) (C++) |
-| Database | PostgreSQL 15 |
-| Cache / Geo | Redis 7 (driver location via GEO commands) |
-| Event Streaming | Apache Kafka 3.7 (KRaft mode) |
-| Real-time | WebSockets (Drogon built-in) |
-| Auth | JWT (jwt-cpp + HS256) |
-| Containerization | Docker / Docker Compose |
+## Features
+- Passenger and driver authentication
+- Ride request, acceptance, and completion flows
+- Real-time driver location updates
+- Ride history and active ride tracking
+- Asynchronous event processing
 
 ## Architecture
+- Client Application communicates with REST APIs and WebSockets.
+- REST API handles HTTP requests and interfaces with PostgreSQL and Redis.
+- Redis manages fast geospatial queries for driver locations.
+- PostgreSQL stores persistent transactional data.
+- Kafka streams ride events to consumers for asynchronous background tasks.
 
-```mermaid
-graph TD
-    Client[Client App] -->|REST| API[Drogon REST API]
-    Client <-->|WS| WS[WebSocket /api/ws]
-    API -->|async| DB[(PostgreSQL)]
-    API -->|geo| Cache[(Redis)]
-    API -->|produce| Kafka[Kafka: ride_events]
-    Kafka -->|consume| Consumer[RideEventConsumer thread]
-    Consumer --> DB
-    WS --> Cache
+## Tech Stack
+- C++ (Drogon Framework)
+- PostgreSQL 15
+- Redis 7
+- Apache Kafka 3.7
+- Docker / Docker Compose
+
+## Project Structure
+```
+src/
+├── main.cc
+├── controllers/
+├── filters/
+├── repositories/
+├── consumers/
+├── utils/
+└── models/
+config/
+└── config.json
+migrations/
+└── 001_init_schema.sql
+docker/
+└── Dockerfile
 ```
 
-## Quick Start
+## Setup
 
 ```bash
-# 1. Clone
 git clone https://github.com/shahharshita78-cpu/ride-hailing-backend
 cd ride-hailing-backend
-
-# 2. Configure environment (optional — sensible defaults are provided)
 cp .env.example .env
-
-# 3. Build & run (first build takes ~5 min to compile C++ deps)
-docker compose up --build
-
-# 4. Verify
-curl http://localhost:8080/health
-# → {"service":"ride-hailing-backend","status":"ok"}
 ```
 
-## API Reference
+## Environment Variables
+- `PG_HOST`: PostgreSQL hostname
+- `PG_PORT`: PostgreSQL port
+- `POSTGRES_USER`: Database user
+- `POSTGRES_PASSWORD`: Database password
+- `POSTGRES_DB`: Database name
+- `REDIS_HOST`: Redis hostname
+- `REDIS_PORT`: Redis port
+- `KAFKA_BROKERS`: Kafka broker list
+- `JWT_SECRET`: Secret key for JWT signing
 
-### Auth
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/auth/register` | — | Register (role: PASSENGER or DRIVER) |
-| `POST` | `/api/auth/login` | — | Login, returns JWT |
-
-### Rides
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/rides` | PASSENGER JWT | Request a new ride |
-| `GET` | `/api/rides/active` | JWT | Get caller's active ride |
-| `GET` | `/api/rides/history` | JWT | Ride history (stub) |
-| `GET` | `/api/rides/{id}` | JWT | Get ride by ID |
-| `POST` | `/api/rides/{id}/accept` | DRIVER JWT | Accept a ride |
-| `POST` | `/api/rides/{id}/start` | DRIVER JWT | Start the ride |
-| `POST` | `/api/rides/{id}/complete` | DRIVER JWT | Complete the ride |
-| `POST` | `/api/rides/{id}/cancel` | DRIVER/PASSENGER JWT | Cancel a ride |
-| `POST` | `/api/rides/{id}/payment` | JWT | Process payment |
-| `POST` | `/api/rides/{id}/rating` | JWT | Submit rating (1–5) |
-
-### Drivers
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/api/drivers/{id}` | — | Get driver profile |
-| `GET` | `/api/drivers/{id}/vehicle` | — | Get driver vehicle |
-
-### Health
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/health` | — | Health check |
-
-### WebSocket
-Connect to `ws://localhost:8080/api/ws?token=<JWT>`
-
-Send JSON messages:
-```json
-{ "action": "location", "lat": 12.9716, "lon": 77.5946 }
-```
-Passengers receive real-time driver location updates and ride status changes.
-
-## Example: Full Ride Flow
-
+## Running the Project
 ```bash
-# Register passenger
-curl -X POST localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Alice","email":"alice@test.com","phone":"9000000001","password":"pass","role":"PASSENGER"}'
-
-# Register driver
-curl -X POST localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Bob","email":"bob@test.com","phone":"9000000002","password":"pass","role":"DRIVER"}'
-
-# Request a ride (use passenger token)
-curl -X POST localhost:8080/api/rides \
-  -H "Authorization: Bearer <PASSENGER_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"pickup":"Airport","destination":"Downtown","estimated_fare":200}'
-
-# Accept the ride (use driver token)
-curl -X POST localhost:8080/api/rides/<RIDE_ID>/accept \
-  -H "Authorization: Bearer <DRIVER_TOKEN>"
+docker compose up -d --build
 ```
 
-## Run Smoke Tests
+## API Endpoints
 
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | None | Health check |
+| POST | `/api/auth/register` | None | Register a new user |
+| POST | `/api/auth/login` | None | Login user |
+| POST | `/api/rides` | PASSENGER | Request a ride |
+| GET | `/api/rides/active` | JWT | Get active ride |
+| GET | `/api/rides/history` | JWT | Get ride history |
+| GET | `/api/rides/{id}` | JWT | Get specific ride |
+| POST | `/api/rides/{id}/accept` | DRIVER | Accept a ride |
+| POST | `/api/rides/{id}/start` | DRIVER | Start a ride |
+| POST | `/api/rides/{id}/complete` | DRIVER | Complete a ride |
+| POST | `/api/rides/{id}/cancel` | JWT | Cancel a ride |
+| POST | `/api/rides/{id}/payment` | JWT | Process payment |
+| POST | `/api/rides/{id}/rating` | JWT | Submit a rating |
+| GET | `/api/drivers/{id}` | None | Get driver profile |
+| GET | `/api/drivers/{id}/vehicle` | None | Get driver vehicle |
+
+## Testing
 ```bash
-# Ensure the stack is running first
 bash test_backend.sh
 ```
 
-## Database Reset
+## WebSocket
+Connect to `ws://localhost:8080/api/ws?token=<JWT>` for real-time ride updates and driver location broadcasting.
 
-```bash
-docker compose down -v          # drops all volumes (data wiped)
-docker compose up --build       # fresh start with init schema
-```
+## Database
+Uses PostgreSQL for transactional data storage, including user accounts, ride metadata, and payments.
 
-## Project Structure
+## Redis
+Used for caching and fast geospatial lookups for driver locations (using `GEOADD` and `GEORADIUS`).
 
-```
-src/
-├── main.cc                         # Drogon app entry point
-├── controllers/
-│   ├── HealthController.{h,cc}     # GET /health
-│   ├── UserController.{h,cc}       # Auth: register, login
-│   ├── RideController.{h,cc}       # Full ride lifecycle
-│   ├── DriverController.{h,cc}     # Driver profile & vehicle
-│   ├── PaymentController.{h,cc}    # Payment processing
-│   ├── RatingController.{h,cc}     # Ride ratings
-│   └── RideWebSocketController.{h,cc}  # Real-time WS hub
-├── filters/
-│   └── JwtFilter.{h,cc}            # JWT auth middleware
-├── repositories/
-│   ├── UserRepository.{h,cc}       # DB access: users
-│   └── RideRepository.{h,cc}       # DB access: rides
-├── consumers/
-│   └── RideEventConsumer.{h,cc}    # Kafka consumer thread
-├── utils/
-│   ├── JwtUtils.{h,cc}             # JWT sign/verify
-│   ├── CryptoUtils.{h,cc}          # Password hashing (SHA-256 + salt)
-│   ├── KafkaUtils.{h,cc}           # Kafka producer helper
-│   └── RedisUtils.{h,cc}           # Redis geo client helper
-└── models/
-    └── Models.h                    # C++ struct definitions
-config/
-└── config.json                     # Drogon listener + thread config
-migrations/
-└── 001_init_schema.sql             # Full PostgreSQL schema
-docker/
-└── Dockerfile                      # Multi-stage C++ build
-```
+## Kafka
+Handles asynchronous event streaming, allowing background processing of ride events without blocking the main HTTP threads.
+
+## Troubleshooting
+If the backend does not start, ensure Docker is running and ports 8080, 5432, 6379, and 9092 are available on the host machine. Use `docker compose logs app` to inspect backend errors.

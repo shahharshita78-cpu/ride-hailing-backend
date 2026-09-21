@@ -36,7 +36,7 @@ async function runDbStressTest() {
     console.log(`Total DB Write Transactions Processed: ${result.requests.total}`);
     console.log('------------------------------\n');
     
-    console.log('✅ Proof of 300% DB Throughput: If you see thousands of successful POST requests without the backend crashing or deadlocking, it proves PgBatchConnection handled heavy concurrent locks beautifully!');
+    console.log(' Proof of 300% DB Throughput: If you see thousands of successful POST requests without the backend crashing or deadlocking, it proves PgBatchConnection handled heavy concurrent locks beautifully!');
   });
 
   autocannon.track(instance, { renderProgressBar: true });

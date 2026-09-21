@@ -9,8 +9,8 @@ BASE_URL="http://127.0.0.1:8080"
 PASS=0
 FAIL=0
 
-color_ok()   { echo -e "\033[0;32m✅ $*\033[0m"; }
-color_err()  { echo -e "\033[0;31m❌ $*\033[0m"; }
+color_ok()   { echo -e "\033[0;32m $*\033[0m"; }
+color_err()  { echo -e "\033[0;31m $*\033[0m"; }
 color_info() { echo -e "\033[0;34mℹ  $*\033[0m"; }
 
 assert_status() {

@@ -24,7 +24,7 @@ async function runLatencyTest() {
     console.log(`Total Requests Processed: ${result.requests.total}`);
     console.log('----------------------------\n');
     
-    console.log('✅ Proof of ~40% Latency Reduction: If p99 latency is < 5ms, this definitively proves the C++ Drogon architecture is drastically outperforming traditional Node.js event loops!');
+    console.log(' Proof of ~40% Latency Reduction: If p99 latency is < 5ms, this definitively proves the C++ Drogon architecture is drastically outperforming traditional Node.js event loops!');
   });
 
   autocannon.track(instance, { renderProgressBar: true });

@@ -84,7 +84,7 @@ function startBlasting(sockets) {
     console.log(`Average Events/Sec: ${eventsSent / TEST_DURATION_SEC}`);
     console.log('---------------------------------------------\n');
     
-    console.log('✅ Proof of 10,000+ Events/Sec: The WebSockets ingested the events instantly without dropping connections. The C++ backend asynchronously pushed these to Redis and Kafka in real-time!');
+    console.log(' Proof of 10,000+ Events/Sec: The WebSockets ingested the events instantly without dropping connections. The C++ backend asynchronously pushed these to Redis and Kafka in real-time!');
     process.exit(0);
   }, TEST_DURATION_SEC * 1000);
 }

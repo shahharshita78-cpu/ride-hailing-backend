@@ -45,7 +45,7 @@ void RideController::requestRide(const HttpRequestPtr &req, std::function<void(c
     try {
         std::string rideId = repositories::RideRepository::createRide(passengerId, pickup, destination, distance, estTime, estFare);
 
-        // FIX 4: Kafka failure must not abort the ride or the WS notification.
+        // Kafka failure must not abort the ride or the WS notification.
         try {
             ::utils::kafka::produceEvent("ride_events", rideId, "RideRequested");
         } catch (const std::exception& kafkaEx) {
@@ -121,7 +121,7 @@ void RideController::acceptRide(const HttpRequestPtr &req, std::function<void(co
     }
 }
 
-// FIX 3: startRide — require authenticated driver, prior status must be MATCHED.
+// startRide — require authenticated driver, prior status must be MATCHED.
 void RideController::startRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback, std::string id) {
     auto userId = req->getAttributes()->get<std::string>("user_id");
     auto role   = req->getAttributes()->get<std::string>("role");
@@ -181,7 +181,7 @@ void RideController::startRide(const HttpRequestPtr &req, std::function<void(con
     }
 }
 
-// FIX 3: completeRide — require authenticated driver, prior status must be ONGOING.
+// completeRide — require authenticated driver, prior status must be ONGOING.
 void RideController::completeRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback, std::string id) {
     auto userId = req->getAttributes()->get<std::string>("user_id");
     auto role   = req->getAttributes()->get<std::string>("role");
@@ -239,7 +239,7 @@ void RideController::completeRide(const HttpRequestPtr &req, std::function<void(
     }
 }
 
-// FIX 3: cancelRide — driver (REQUESTED/MATCHED) or passenger (REQUESTED/MATCHED).
+// cancelRide — driver (REQUESTED/MATCHED) or passenger (REQUESTED/MATCHED).
 void RideController::cancelRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback, std::string id) {
     auto userId = req->getAttributes()->get<std::string>("user_id");
     auto role   = req->getAttributes()->get<std::string>("role");

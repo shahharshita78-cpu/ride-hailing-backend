@@ -10,7 +10,15 @@ namespace utils {
 namespace crypto {
 
 std::string generateSalt(size_t length) {
-    return "mock_salt";
+    std::vector<unsigned char> buffer(length);
+    if (RAND_bytes(buffer.data(), length) != 1) {
+        return "fallback_salt_string"; // In case RAND_bytes fails
+    }
+    std::stringstream ss;
+    for (size_t i = 0; i < length; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i];
+    }
+    return ss.str();
 }
 
 std::string hashPassword(const std::string& password, const std::string& salt) {

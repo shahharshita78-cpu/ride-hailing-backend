@@ -15,13 +15,13 @@ int main() {
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    // ── Logging ──────────────────────────────────────────────────────────────
+
     drogon::app().setLogLevel(trantor::Logger::kInfo);
 
-    // ── Load base Drogon config (listener port etc.) ─────────────────────────
+
     drogon::app().loadConfigFile("config/config.json");
 
-    // ── Database connection (env-driven, no hardcoded credentials) ───────────
+
     std::string pgHost     = env("PG_HOST",          "postgres");
     std::string pgUser     = env("POSTGRES_USER",    "postgres");
     std::string pgPassword = env("POSTGRES_PASSWORD","postgres");
@@ -55,7 +55,7 @@ int main() {
         false           // auto batch
     );
 
-    // ── CORS ─────────────────────────────────────────────────────────────────
+
     // Pre-routing advice: handle OPTIONS preflight and inject CORS headers.
     drogon::app().registerPreRoutingAdvice(
         [](const drogon::HttpRequestPtr &req,
@@ -77,7 +77,7 @@ int main() {
             resp->addHeader("Access-Control-Allow-Origin", "*");
         });
 
-    // ── Kafka consumer ────────────────────────────────────────────────────────
+
     // IMPORTANT: start the consumer inside registerBeginningAdvice so it runs
     // AFTER the Drogon event loop starts and the DB connection pool is ready.
     static consumers::RideEventConsumer eventConsumer;
@@ -86,7 +86,7 @@ int main() {
         eventConsumer.start();
     });
 
-    // ── Global exception handler ──────────────────────────────────────────────
+
     drogon::app().setExceptionHandler(
         [](const std::exception &e,
            const drogon::HttpRequestPtr &req,
