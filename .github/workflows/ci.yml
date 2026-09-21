@@ -15,7 +15,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker images
-        run: docker compose build --no-cache
+        run: |
+          if ! docker compose build --no-cache > build.log 2>&1; then
+            git config --global user.email "ci@example.com"
+            git config --global user.name "CI"
+            git add build.log
+            git commit -m "chore: CI build failure log"
+            git push
+            exit 1
+          fi
 
       - name: Start all services
         run: |
