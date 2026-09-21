@@ -11,14 +11,14 @@ public:
     METHOD_LIST_BEGIN
     // IMPORTANT: Static concrete paths MUST be registered before parameterized {id} paths.
     // Drogon is first-match-wins; /api/rides/{id} would otherwise shadow /api/rides/history.
-    ADD_METHOD_TO(RideController::requestRide,  "/api/rides",          Post, "JwtFilter");
-    ADD_METHOD_TO(RideController::getHistory,   "/api/rides/history",  Get,  "JwtFilter");
-    ADD_METHOD_TO(RideController::getActiveRide,"/api/rides/active",   Get,  "JwtFilter");
-    ADD_METHOD_TO(RideController::getRide,      "/api/rides/{id}",     Get,  "JwtFilter");
-    ADD_METHOD_TO(RideController::acceptRide,   "/api/rides/{id}/accept",   Post, "JwtFilter");
-    ADD_METHOD_TO(RideController::startRide,    "/api/rides/{id}/start",    Post, "JwtFilter");
-    ADD_METHOD_TO(RideController::completeRide, "/api/rides/{id}/complete", Post, "JwtFilter");
-    ADD_METHOD_TO(RideController::cancelRide,   "/api/rides/{id}/cancel",   Post, "JwtFilter");
+    ADD_METHOD_TO(RideController::requestRide,  "/api/rides",          drogon::Post, "JwtFilter");
+    ADD_METHOD_TO(RideController::getHistory,   "/api/rides/history",  drogon::Get,  "JwtFilter");
+    ADD_METHOD_TO(RideController::getActiveRide,"/api/rides/active",   drogon::Get,  "JwtFilter");
+    ADD_METHOD_TO(RideController::getRide,      "/api/rides/{id}",     drogon::Get,  "JwtFilter");
+    ADD_METHOD_TO(RideController::acceptRide,   "/api/rides/{id}/accept",   drogon::Post, "JwtFilter");
+    ADD_METHOD_TO(RideController::startRide,    "/api/rides/{id}/start",    drogon::Post, "JwtFilter");
+    ADD_METHOD_TO(RideController::completeRide, "/api/rides/{id}/complete", drogon::Post, "JwtFilter");
+    ADD_METHOD_TO(RideController::cancelRide,   "/api/rides/{id}/cancel",   drogon::Post, "JwtFilter");
     METHOD_LIST_END
 
     void requestRide(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback);
