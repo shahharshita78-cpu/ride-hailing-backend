@@ -8,7 +8,7 @@ using namespace api::auth;
 
 void UserController::registerUser(const drogon::HttpRequestPtr& req,
                                   std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
-    LOG_INFO << "UserController: registerUser HTTP handler called!";
+
     auto jsonPtr = req->getJsonObject();
     if (!jsonPtr) {
         auto resp = drogon::HttpResponse::newHttpResponse();
@@ -44,11 +44,11 @@ void UserController::registerUser(const drogon::HttpRequestPtr& req,
     std::string salt = ::utils::crypto::generateSalt();
     std::string passwordHash = ::utils::crypto::hashPassword(password, salt);
 
-    LOG_INFO << "UserController: Calling UserRepository::createUser for email " << email;
+
     repositories::UserRepository::createUser(
         name, email, phone, passwordHash, role,
         [callback, name, email, role](const std::string& userId) {
-            LOG_INFO << "UserController: createUser SUCCESS, generating token";
+
             std::string token = ::utils::jwt_utils::generateToken(userId, role);
 
             Json::Value userObj;

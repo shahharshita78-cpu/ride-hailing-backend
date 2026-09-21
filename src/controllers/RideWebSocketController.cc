@@ -4,7 +4,7 @@
 #include <drogon/orm/DbClient.h>
 #include <json/json.h>
 
-using namespace api::rides; // Changed namespace
+using namespace api::rides;
 
 std::unordered_map<std::string, std::set<WebSocketConnectionPtr>> RideWebSocketController::userConnections_;
 std::mutex RideWebSocketController::mutex_;
