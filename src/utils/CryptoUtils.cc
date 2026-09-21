@@ -4,19 +4,20 @@
 #include <openssl/sha.h>
 #include <iomanip>
 #include <sstream>
+#include <random>
 #include <vector>
 
 namespace utils {
 namespace crypto {
 
 std::string generateSalt(size_t length) {
-    std::vector<unsigned char> buffer(length);
-    if (RAND_bytes(buffer.data(), length) != 1) {
-        return "fallback_salt_string"; // In case RAND_bytes fails
-    }
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(0, 255);
+    
     std::stringstream ss;
     for (size_t i = 0; i < length; i++) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i];
+        ss << std::hex << std::setw(2) << std::setfill('0') << dist(gen);
     }
     return ss.str();
 }
