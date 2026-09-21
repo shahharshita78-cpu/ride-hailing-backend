@@ -6,6 +6,7 @@
 #include <sstream>
 #include <random>
 #include <vector>
+#include <cstddef>
 
 namespace utils {
 namespace crypto {
