@@ -57,6 +57,8 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     OPENSSL_NO_DEPRECATED
 )
 
+find_package(Threads REQUIRED)
+
 # ── Link libraries ────────────────────────────────────────────────────────────
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Drogon::Drogon
@@ -81,8 +83,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     # Threading
     Threads::Threads
 )
-
-find_package(Threads REQUIRED)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Sources: ${SRC_FILES}")
