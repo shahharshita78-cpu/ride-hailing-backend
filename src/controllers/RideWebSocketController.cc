@@ -141,16 +141,22 @@ void RideWebSocketController::notifyPassengerByRideId(const std::string& rideId,
 }
 
 void RideWebSocketController::notifyAllDrivers(const Json::Value& message) {
-    std::lock_guard<std::mutex> lock(mutex_);
     Json::FastWriter writer;
     std::string msgStr = writer.write(message);
+
+    // Lock once and send directly — do NOT call notifyUser() here,
+    // as it also acquires mutex_ and would deadlock on a non-recursive mutex.
+    std::lock_guard<std::mutex> lock(mutex_);
     for (const auto& [userId, conns] : userConnections_) {
         if (conns.empty()) continue;
+        // Check first connection's context to determine if the user is a driver
         auto context = (*conns.begin())->getContext<std::pair<std::string, std::string>>();
         if (context && !context->second.empty()) {
+            // Has a driverId in context → this is a driver connection
             for (const auto& conn : conns) {
                 conn->send(msgStr);
             }
         }
     }
 }
+

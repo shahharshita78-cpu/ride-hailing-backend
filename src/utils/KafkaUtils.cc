@@ -1,44 +1,53 @@
 #include "KafkaUtils.h"
 #include <iostream>
 #include <cstdlib>
+#include <mutex>
 #include <drogon/drogon.h>
 
 namespace utils {
 namespace kafka {
 
-std::string getBroker() {
+static std::string getBroker() {
     const char* env_broker = std::getenv("KAFKA_BROKER");
-    if (env_broker) return std::string(env_broker);
-    return "localhost:9092";
+    return env_broker ? std::string(env_broker) : "kafka:9092";
 }
 
-void produceEvent(const std::string& topic, const std::string& key, const std::string& payload) {
+// Thread-safe lazy producer singleton using call_once
+static cppkafka::Producer& getProducer() {
+    static std::once_flag initFlag;
+    static std::unique_ptr<cppkafka::Producer> producer;
+
+    std::call_once(initFlag, []() {
+        cppkafka::Configuration config = {
+            { "metadata.broker.list", getBroker() },
+            { "message.timeout.ms",   "5000" },
+            { "socket.timeout.ms",    "5000" },
+            // Disable Nagle's algorithm for lower latency
+            { "socket.nagle.disable", "true" }
+        };
+        producer = std::make_unique<cppkafka::Producer>(config);
+        LOG_INFO << "Kafka producer initialized (broker: " << getBroker() << ")";
+    });
+
+    return *producer;
+}
+
+void produceEvent(const std::string& topic,
+                  const std::string& key,
+                  const std::string& payload) {
     try {
-        static cppkafka::Producer* producer = nullptr;
-        if (!producer) {
-            try {
-                cppkafka::Configuration config = {
-                    { "metadata.broker.list", getBroker() },
-                    { "message.timeout.ms", 3000 },
-                    { "socket.timeout.ms", 3000 }
-                };
-                producer = new cppkafka::Producer(config);
-            } catch (const std::exception& e) {
-                LOG_ERROR << "Failed to create Kafka producer: " << e.what();
-                return;
-            }
-        }
-        
+        auto& prod = getProducer();
         cppkafka::MessageBuilder builder(topic);
         builder.key(key).payload(payload);
-        
-        producer->produce(builder);
-        producer->poll(std::chrono::milliseconds(0));
-        producer->flush(std::chrono::milliseconds(100));
+        prod.produce(builder);
+        // Non-blocking poll — lets rdkafka service delivery callbacks
+        prod.poll(std::chrono::milliseconds(0));
     } catch (const std::exception& e) {
-        LOG_ERROR << "Kafka producer error: " << e.what();
+        // Never let Kafka errors bubble up and kill the request pipeline
+        LOG_ERROR << "Kafka produceEvent error [topic=" << topic
+                  << " key=" << key << "]: " << e.what();
     }
 }
 
-}
-}
+} // namespace kafka
+} // namespace utils

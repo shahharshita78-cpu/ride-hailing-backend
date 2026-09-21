@@ -1,88 +1,105 @@
 #include <drogon/drogon.h>
 #include <postgresql/libpq-fe.h>
-#include "utils/KafkaUtils.h"
 #include "consumers/RideEventConsumer.h"
 #include <cstdlib>
+#include <string>
+
+// Helper: read env var with default
+static std::string env(const char* name, const char* defaultVal) {
+    const char* v = std::getenv(name);
+    return v ? std::string(v) : std::string(defaultVal);
+}
 
 int main() {
-    // Force unbuffered stdout/stderr
+    // Force unbuffered stdout/stderr for Docker log visibility
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    // Enable Trace logging
-    drogon::app().setLogLevel(trantor::Logger::kTrace);
+    // ── Logging ──────────────────────────────────────────────────────────────
+    drogon::app().setLogLevel(trantor::Logger::kInfo);
 
-    // Connect using the Drogon config file
-    drogon::app().loadConfigFile("../config/config.json");
+    // ── Load base Drogon config (listener port etc.) ─────────────────────────
+    drogon::app().loadConfigFile("config/config.json");
 
-    // Start Kafka consumer
-    static consumers::RideEventConsumer eventConsumer;
-    eventConsumer.start();
+    // ── Database connection (env-driven, no hardcoded credentials) ───────────
+    std::string pgHost     = env("PG_HOST",          "postgres");
+    std::string pgUser     = env("POSTGRES_USER",    "postgres");
+    std::string pgPassword = env("POSTGRES_PASSWORD","postgres");
+    std::string pgDb       = env("POSTGRES_DB",      "ride_hailing");
+    int         pgPort     = std::stoi(env("PG_PORT","5432"));
 
-    // RAW libpq connection test to figure out why Drogon's DB pool is hanging
-    std::string pgHost = "postgres";
-    if (const char* envHost = std::getenv("PG_HOST")) {
-        pgHost = envHost;
-    }
-    
-    LOG_INFO << "Testing RAW libpq connection to " << pgHost << "...";
-    std::string connStr = "host=" + pgHost + " port=5432 dbname=ride_hailing user=postgres password=postgres connect_timeout=5";
-    PGconn *conn = PQconnectdb(connStr.c_str());
-    if (PQstatus(conn) != CONNECTION_OK) {
-        LOG_ERROR << "CRITICAL: libpq raw connection failed! Error: " << PQerrorMessage(conn);
+    // Quick libpq connection test — helps diagnose DB connectivity before Drogon starts
+    LOG_INFO << "Testing libpq connection to " << pgHost << ":" << pgPort << " ...";
+    std::string connStr = "host=" + pgHost + " port=" + std::to_string(pgPort)
+                        + " dbname=" + pgDb + " user=" + pgUser
+                        + " password=" + pgPassword + " connect_timeout=5";
+    PGconn *rawConn = PQconnectdb(connStr.c_str());
+    if (PQstatus(rawConn) != CONNECTION_OK) {
+        LOG_ERROR << "libpq connection test FAILED: " << PQerrorMessage(rawConn);
     } else {
-        LOG_INFO << "SUCCESS: libpq raw connection to " << pgHost << " succeeded!";
+        LOG_INFO << "libpq connection test OK.";
     }
-    PQfinish(conn);
+    PQfinish(rawConn);
 
-    // Initialize Drogon DB Client manually using the resolved host
-    drogon::app().createDbClient("postgresql", pgHost, 5432, "ride_hailing", "postgres", "postgres", 5, "", "default", false);
-
-    // Add CORS support
-    drogon::app().registerPreRoutingAdvice([](const drogon::HttpRequestPtr &req,
-                                              drogon::FilterCallback &&defer,
-                                              drogon::FilterChainCallback &&chain) {
-        if (req->method() == drogon::Options) {
-            auto resp = drogon::HttpResponse::newHttpResponse();
-            resp->addHeader("Access-Control-Allow-Origin", "*");
-            resp->addHeader("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PUT, DELETE, PATCH");
-            resp->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-            defer(resp);
-        } else {
-            chain();
-        }
-    });
-
-    drogon::app().registerPostHandlingAdvice([](const drogon::HttpRequestPtr &req, const drogon::HttpResponsePtr &resp) {
-        resp->addHeader("Access-Control-Allow-Origin", "*");
-    });
-
-    // Test route
-    drogon::app().registerHandler(
-        "/",
-        [](const drogon::HttpRequestPtr& req,
-           std::function<void (const drogon::HttpResponsePtr &)> &&callback) {
-            auto resp = drogon::HttpResponse::newHttpResponse();
-            resp->setStatusCode(drogon::k200OK);
-            resp->setBody("Ride Hailing Backend is running!");
-            callback(resp);
-        },
-        {drogon::Get}
+    // Register Drogon DB client (connection pool)
+    drogon::app().createDbClient(
+        "postgresql",   // type
+        pgHost,         // host
+        pgPort,         // port
+        pgDb,           // db name
+        pgUser,         // user
+        pgPassword,     // password
+        5,              // connection pool size
+        "",             // Unix socket path (empty = use TCP)
+        "default",      // connection name
+        false           // auto batch
     );
 
-    LOG_INFO << "Starting server on 0.0.0.0:8080";
+    // ── CORS ─────────────────────────────────────────────────────────────────
+    // Pre-routing advice: handle OPTIONS preflight and inject CORS headers.
+    drogon::app().registerPreRoutingAdvice(
+        [](const drogon::HttpRequestPtr &req,
+           drogon::AdviceCallback       &&stop,
+           drogon::AdviceChainCallback  &&next) {
+            if (req->method() == drogon::Options) {
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->addHeader("Access-Control-Allow-Origin",  "*");
+                resp->addHeader("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PUT, DELETE, PATCH");
+                resp->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+                stop(resp);
+            } else {
+                next();
+            }
+        });
 
-    // Centralized exception handling
-    drogon::app().setExceptionHandler([](const std::exception &e,
-                                         const drogon::HttpRequestPtr &req,
-                                         std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
-        LOG_ERROR << "Unhandled exception: " << e.what();
-        auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k500InternalServerError);
-        resp->setBody("Internal Server Error");
-        callback(resp);
+    drogon::app().registerPostHandlingAdvice(
+        [](const drogon::HttpRequestPtr &req, const drogon::HttpResponsePtr &resp) {
+            resp->addHeader("Access-Control-Allow-Origin", "*");
+        });
+
+    // ── Kafka consumer ────────────────────────────────────────────────────────
+    // IMPORTANT: start the consumer inside registerBeginningAdvice so it runs
+    // AFTER the Drogon event loop starts and the DB connection pool is ready.
+    static consumers::RideEventConsumer eventConsumer;
+    drogon::app().registerBeginningAdvice([&]() {
+        LOG_INFO << "Drogon is up — starting Kafka consumer...";
+        eventConsumer.start();
     });
 
+    // ── Global exception handler ──────────────────────────────────────────────
+    drogon::app().setExceptionHandler(
+        [](const std::exception &e,
+           const drogon::HttpRequestPtr &req,
+           std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+            LOG_ERROR << "Unhandled exception: " << e.what();
+            Json::Value ret;
+            ret["error"] = e.what();
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(drogon::k500InternalServerError);
+            callback(resp);
+        });
+
+    LOG_INFO << "Starting ride-hailing-backend on 0.0.0.0:8080";
     drogon::app().run();
     return 0;
 }

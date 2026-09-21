@@ -1,0 +1,243 @@
+name: Build & Test Backend
+
+on:
+  push:
+    branches: [main, fix/full-repair]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker images
+        run: docker compose build --no-cache
+
+      - name: Start all services
+        run: |
+          docker compose up -d
+          echo "Waiting for services to be healthy..."
+          # Wait up to 60s for all services to be healthy
+          for i in $(seq 1 60); do
+            ALL_HEALTHY=true
+            for svc in postgres redis kafka app; do
+              STATUS=$(docker compose ps --format '{{.Status}}' $svc 2>/dev/null || echo "missing")
+              if echo "$STATUS" | grep -qi "unhealthy\|starting\|exited\|missing"; then
+                ALL_HEALTHY=false
+                break
+              fi
+            done
+            if [ "$ALL_HEALTHY" = true ]; then
+              echo "✅ All services healthy after ${i}s"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "❌ Timeout waiting for services"
+              docker compose ps
+              docker compose logs --tail=100
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Show container status
+        run: docker compose ps
+
+      - name: Show app logs
+        if: always()
+        run: docker compose logs --tail=200 app
+
+      - name: Test GET /health
+        run: |
+          echo "Testing health endpoint..."
+          RESP=$(curl -s -w "\n%{http_code}" http://localhost:8080/health)
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Health check failed with HTTP $CODE"
+            exit 1
+          fi
+          if ! echo "$BODY" | grep -q '"ok"'; then
+            echo "❌ Health response missing status=ok"
+            exit 1
+          fi
+          echo "✅ Health check passed"
+
+      - name: Test POST /api/auth/register (passenger)
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/api/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"name":"CI Passenger","email":"ci_passenger@test.com","phone":"9000000001","password":"testpass123","role":"PASSENGER"}')
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Register passenger failed"
+            docker compose logs --tail=50 app
+            exit 1
+          fi
+          # Extract token
+          TOKEN=$(echo "$BODY" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+          echo "PASS_TOKEN=$TOKEN" >> $GITHUB_ENV
+          echo "✅ Passenger registered"
+
+      - name: Test POST /api/auth/register (driver)
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/api/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"name":"CI Driver","email":"ci_driver@test.com","phone":"9000000002","password":"testpass123","role":"DRIVER"}')
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Register driver failed"
+            docker compose logs --tail=50 app
+            exit 1
+          fi
+          TOKEN=$(echo "$BODY" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+          echo "DRIVER_TOKEN=$TOKEN" >> $GITHUB_ENV
+          echo "✅ Driver registered"
+
+      - name: Test POST /api/auth/login
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"ci_passenger@test.com","password":"testpass123"}')
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Login failed"
+            exit 1
+          fi
+          echo "✅ Login passed"
+
+      - name: Test POST /api/rides (request ride)
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/api/rides \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ env.PASS_TOKEN }}" \
+            -d '{"pickup":"Airport","destination":"Downtown","distance_km":12.5,"estimated_fare":250.0}')
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Request ride failed"
+            docker compose logs --tail=50 app
+            exit 1
+          fi
+          RIDE_ID=$(echo "$BODY" | grep -o '"ride_id":"[^"]*"' | cut -d'"' -f4)
+          echo "RIDE_ID=$RIDE_ID" >> $GITHUB_ENV
+          echo "✅ Ride requested: $RIDE_ID"
+
+      - name: Test GET /api/rides/{id}
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" http://localhost:8080/api/rides/${{ env.RIDE_ID }} \
+            -H "Authorization: Bearer ${{ env.PASS_TOKEN }}")
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Get ride failed"
+            exit 1
+          fi
+          echo "✅ Get ride passed"
+
+      - name: Test POST /api/rides/{id}/accept (driver accepts)
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/api/rides/${{ env.RIDE_ID }}/accept \
+            -H "Authorization: Bearer ${{ env.DRIVER_TOKEN }}")
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Accept ride failed"
+            docker compose logs --tail=50 app
+            exit 1
+          fi
+          echo "✅ Driver accepted ride"
+
+      - name: Test POST /api/rides/{id}/start
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/api/rides/${{ env.RIDE_ID }}/start \
+            -H "Authorization: Bearer ${{ env.DRIVER_TOKEN }}")
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Start ride failed"
+            exit 1
+          fi
+          echo "✅ Ride started"
+
+      - name: Test POST /api/rides/{id}/complete
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8080/api/rides/${{ env.RIDE_ID }}/complete \
+            -H "Authorization: Bearer ${{ env.DRIVER_TOKEN }}")
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Complete ride failed"
+            exit 1
+          fi
+          echo "✅ Ride completed"
+
+      - name: Test GET /api/rides/history
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" http://localhost:8080/api/rides/history \
+            -H "Authorization: Bearer ${{ env.PASS_TOKEN }}")
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE: $BODY"
+          if [ "$CODE" != "200" ]; then
+            echo "❌ Ride history failed"
+            exit 1
+          fi
+          echo "✅ Ride history passed"
+
+      - name: Test GET /api/rides/active
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" http://localhost:8080/api/rides/active \
+            -H "Authorization: Bearer ${{ env.PASS_TOKEN }}")
+          BODY=$(echo "$RESP" | head -1)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE"
+          echo "✅ Active ride endpoint responded"
+
+      - name: Test GET /api/drivers/{id} (404 for invalid ID is OK)
+        run: |
+          RESP=$(curl -s -w "\n%{http_code}" http://localhost:8080/api/drivers/00000000-0000-0000-0000-000000000001)
+          CODE=$(echo "$RESP" | tail -1)
+          echo "HTTP $CODE"
+          if [ "$CODE" = "200" ] || [ "$CODE" = "404" ]; then
+            echo "✅ Driver endpoint works"
+          else
+            echo "❌ Driver endpoint returned unexpected $CODE"
+            exit 1
+          fi
+
+      - name: Test JWT protection (no token → 401)
+        run: |
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/api/rides \
+            -H "Content-Type: application/json" \
+            -d '{"pickup":"A","destination":"B"}')
+          echo "HTTP $CODE (expected 401)"
+          if [ "$CODE" != "401" ]; then
+            echo "❌ Expected 401, got $CODE"
+            exit 1
+          fi
+          echo "✅ JWT protection works"
+
+      - name: Final app logs
+        if: always()
+        run: docker compose logs --tail=100 app
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v

@@ -1,0 +1,13 @@
+# Exclude heavy/unnecessary directories from Docker build context
+.git
+build
+_build
+node_modules
+frontend
+benchmark
+fixes.diff
+*.md
+.env
+.env.*
+!.env.example
+package*.json
