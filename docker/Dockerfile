@@ -44,7 +44,7 @@ RUN git clone --depth=1 --recurse-submodules https://github.com/drogonframework/
 RUN git clone --depth=1 https://github.com/Thalhammer/jwt-cpp.git && \
     cd jwt-cpp && \
     mkdir _build && cd _build && \
-    cmake .. -DJWT_BUILD_EXAMPLES=OFF -DJWT_DISABLE_PICOJSON=ON && \
+    cmake .. -DJWT_BUILD_EXAMPLES=OFF && \
     make install && \
     cd ../.. && rm -rf jwt-cpp
 

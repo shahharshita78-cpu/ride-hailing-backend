@@ -51,9 +51,8 @@ if(JWT_CPP_INCLUDE_DIR)
 endif()
 
 # ── Compile definitions ───────────────────────────────────────────────────────
-# jwt-cpp: use OpenSSL backend, not picojson
+# jwt-cpp: use OpenSSL backend
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    JWT_DISABLE_PICOJSON
     OPENSSL_NO_DEPRECATED
 )
 
